@@ -1,0 +1,61 @@
+# ==========================================
+# GITIGNORE - DỰ ÁN HOTELNT (FRONTEND TEAM)
+# ==========================================
+
+# Dependencies (Bắt buộc không push lên Git)
+node_modules/
+.pnp
+.pnp.js
+
+# Build Outputs
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment Variables & Secrets (TUYỆT ĐỐI KHÔNG PUSH)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor & IDE Configs
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# Temporary & Testing Files
+coverage/
+*.tmp
+*.temp
+temp_*
+~$*
+
+# Vite cache
+.vite/
