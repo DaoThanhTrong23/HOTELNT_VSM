@@ -173,3 +173,5 @@ Trình duyệt sẽ mở tại: `http://localhost:5173`.
 npm run build
 ```
 Đảm bảo không có bất kỳ cảnh báo hoặc lỗi cú pháp nào trước khi tạo Pull Request (PR).
+#   H O T E L N T _ V S M  
+ 
