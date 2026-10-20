@@ -79,7 +79,7 @@ export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
                 `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                   isActive
                     ? 'bg-black text-white shadow-xs'
-                    : 'border border-slate-300 text-slate-700 hover:text-black hover:border-black bg-white'
+                    : 'border border-[#CBD5E1] text-[#64748B] hover:text-black hover:border-black bg-white'
                 }`
               }
             >
@@ -106,14 +106,14 @@ export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
             </div>
             <div className="truncate text-xs">
               <p className="font-bold text-white truncate">{user?.name || 'Đào Thanh Trọng'}</p>
-              <p className="text-slate-300 text-[11px] truncate">Chủ cơ sở</p>
+              <p className="text-[#CBD5E1] text-[11px] truncate">Chủ cơ sở</p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
             title="Đăng xuất"
-            className="p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 text-[#CBD5E1] hover:text-white transition-colors cursor-pointer"
           >
             <LogOut size={16} />
           </button>

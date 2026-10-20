@@ -74,8 +74,8 @@ export const HostProfilePage = () => {
   } else if (criteriaPassedCount >= 3) {
     strengthLevel = 'medium';
     strengthLabel = 'Trung bình';
-    strengthColor = 'bg-[#B45309]';
-    strengthTextColor = 'text-[#B45309]';
+    strengthColor = 'bg-[#FFC107]';
+    strengthTextColor = 'text-[#D97706]';
   }
 
   const isProfileFilled = Boolean(name.trim() && phone.trim());

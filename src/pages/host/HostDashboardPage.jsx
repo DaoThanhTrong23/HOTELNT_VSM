@@ -278,7 +278,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               to={`/host/hotels/${hotel.id}/edit`}
               data-action="edit"
               title="Chỉnh sửa bản nháp"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
             >
               Sửa
             </Link>
@@ -288,7 +288,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               data-action="submit-moderation"
               onClick={() => handleSubmitModeration(hotel)}
               title="Gửi kiểm duyệt"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
             >
               Gửi duyệt
             </button>
@@ -298,7 +298,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               data-action="delete"
               onClick={() => setDeleteConfirmHotel(hotel)}
               title="Xóa bài nháp"
-              className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-500 text-xs font-medium hover:bg-red-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#DC2626]/40 bg-white text-[#DC2626] text-xs font-medium hover:bg-[#F4A9A9]/20 transition-colors cursor-pointer"
             >
               Xóa
             </button>
@@ -312,7 +312,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               to={`/hotel/${hotel.id}`}
               data-action="preview"
               title="Xem chi tiết"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
             >
               Xem
             </Link>
@@ -322,7 +322,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               data-action="withdraw"
               onClick={() => setWithdrawConfirmHotel(hotel)}
               title="Rút lại yêu cầu kiểm duyệt"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-medium hover:bg-amber-50 hover:text-amber-700 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-[#64748B] text-xs font-medium hover:bg-[#FEE8A8]/40 hover:text-[#D97706] transition-colors cursor-pointer"
             >
               Rút lại
             </button>
@@ -336,7 +336,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               to={`/hotel/${hotel.id}`}
               data-action="preview"
               title="Xem trang công khai"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
             >
               Xem
             </Link>
@@ -346,7 +346,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               data-action="edit"
               onClick={() => setWarningApprovedModalHotel(hotel)}
               title="Chỉnh sửa thông tin cơ sở"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
             >
               Sửa
             </button>
@@ -361,7 +361,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               data-action="view-rejection-reason"
               onClick={() => setRejectionModalHotel(hotel)}
               title="Xem lý do từ chối và sửa"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
             >
               Xem & sửa
             </button>
@@ -371,7 +371,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               data-action="delete"
               onClick={() => setDeleteConfirmHotel(hotel)}
               title="Xóa bài viết"
-              className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-500 text-xs font-medium hover:bg-red-50 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[#DC2626]/40 bg-white text-[#DC2626] text-xs font-medium hover:bg-[#F4A9A9]/20 transition-colors cursor-pointer"
             >
               Xóa
             </button>
@@ -384,7 +384,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             to={`/host/hotels/${hotel.id}/edit`}
             data-action="edit"
             title="Sửa và gửi lại"
-            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer"
           >
             Sửa & gửi lại
           </Link>
@@ -437,7 +437,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
           <h1 className="text-2xl font-bold text-black tracking-tight">
             Cơ sở lưu trú của tôi
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#64748B] mt-1">
             Quản lý, cập nhật và gửi kiểm duyệt các cơ sở của bạn
           </p>
         </div>
@@ -482,7 +482,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                 className={`px-3 py-2 rounded-lg text-xs font-medium shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                   isSelected
                     ? 'bg-black text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:text-black border border-slate-200/80 hover:border-slate-300'
+                    : 'bg-white text-black hover:border-black border border-[#CBD5E1]'
                 }`}
               >
                 <span>{tab.label}</span>
@@ -490,7 +490,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                   className={`text-[11px] px-1.5 py-0.2 rounded-full font-semibold ${
                     isSelected
                       ? 'bg-neutral-800 text-white'
-                      : 'bg-slate-100 text-slate-600'
+                      : 'bg-[#F8F4E8] text-[#64748B]'
                   }`}
                 >
                   {count}
@@ -502,19 +502,19 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
 
         {/* SEARCH INPUT */}
         <div className="relative min-w-[260px]">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
           <input
             type="text"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="Tìm theo tên cơ sở"
-            className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-black transition-colors"
+            className="w-full pl-9 pr-8 py-2 bg-white border border-[#CBD5E1] rounded-lg text-xs focus:outline-none focus:border-black transition-colors"
           />
           {searchKeyword && (
             <button
               type="button"
               onClick={() => setSearchKeyword('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-black"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-black"
             >
               <X size={14} />
             </button>
@@ -524,22 +524,22 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
 
       {/* CONTENT LIST / TABLE */}
       {loading ? (
-        <div className="bg-white p-12 rounded-xl border border-slate-200 flex items-center justify-center">
+        <div className="bg-white p-12 rounded-xl border border-[#CBD5E1] flex items-center justify-center">
           <LoadingSpinner />
         </div>
       ) : filteredHotels.length === 0 ? (
         /* EMPTY STATE */
         <div
           data-testid="host-empty-state"
-          className="bg-white rounded-xl border border-slate-200 p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4 my-6 shadow-xs"
+          className="bg-white rounded-xl border border-[#CBD5E1] p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4 my-6 shadow-xs"
         >
-          <div className="w-16 h-16 rounded-xl bg-slate-100 text-black mx-auto flex items-center justify-center">
+          <div className="w-16 h-16 rounded-xl bg-[#F8F4E8] text-black mx-auto flex items-center justify-center">
             <Building size={32} />
           </div>
           <h3 className="text-lg font-bold text-black">
             {hotels.length === 0 ? 'Bạn chưa có cơ sở lưu trú nào' : 'Không tìm thấy cơ sở phù hợp'}
           </h3>
-          <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed">
             {hotels.length === 0
               ? 'Hãy bắt đầu đăng ký cơ sở đầu tiên để tiếp cận hàng ngàn du khách tại Nha Trang.'
               : 'Hãy thử tìm kiếm với từ khóa khác hoặc chuyển sang danh mục trạng thái khác.'}
@@ -574,13 +574,13 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               <div
                 key={hotel.id}
                 data-testid="mobile-hotel-card"
-                className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 shadow-2xs hover:border-black/30 transition-all"
+                className="bg-white rounded-xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs hover:border-black/30 transition-all"
               >
                 {/* TOP ROW: THUMBNAIL + BASIC INFO */}
                 <div className="flex gap-3 items-start">
                   <div
                     className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 flex items-center justify-center ${
-                      hotel.colorClass || 'bg-slate-200'
+                      hotel.colorClass || 'bg-[#CBD5E1]'
                     }`}
                   >
                     {hotel.thumbnail ? (
@@ -596,8 +596,8 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
 
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold text-black line-clamp-1">{hotel.name}</h4>
-                    <p className="text-xs text-slate-500">{hotel.type}</p>
-                    <p className="text-xs text-slate-600 mt-0.5">{hotel.ward}</p>
+                    <p className="text-xs text-[#64748B]">{hotel.type}</p>
+                    <p className="text-xs text-[#64748B] mt-0.5">{hotel.ward}</p>
 
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <StatusBadge status={hotel.status} />
@@ -611,8 +611,8 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                 </div>
 
                 {/* BOTTOM ROW: DATE & ACTION BAR */}
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                <div className="pt-2 border-t border-[#CBD5E1]/60 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 text-[11px] text-[#64748B]">
                     <Calendar size={13} />
                     <span>{formatDate(hotel.createdAt)}</span>
                   </div>
@@ -626,11 +626,11 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
           {/* B. DESKTOP DATA TABLE (≥ 768px) - 8 CỘT CHUẨN FIGMA */}
           <div
             data-testid="desktop-data-table"
-            className="hidden md:block bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden"
+            className="hidden md:block bg-white rounded-xl border border-[#CBD5E1] shadow-2xs overflow-hidden"
           >
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="text-slate-500 font-medium border-b border-slate-200/80 bg-slate-50/50">
+                <thead className="text-[#64748B] font-medium border-b border-[#CBD5E1] bg-[#F8F4E8]/40">
                   <tr>
                     {/* CỘT 1: CHECKBOX + ẢNH */}
                     <th className="py-3 px-4 w-28">
@@ -642,7 +642,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                             filteredHotels.length > 0 &&
                             selectedHotels.length === filteredHotels.length
                           }
-                          className="w-4 h-4 rounded border-slate-300 text-black focus:ring-black cursor-pointer"
+                          className="w-4 h-4 rounded border-[#CBD5E1] text-black focus:ring-black cursor-pointer"
                         />
                         <span>Ảnh</span>
                       </div>
@@ -667,7 +667,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                     <th className="py-3 px-4 font-medium">
                       <div className="flex items-center gap-1 cursor-pointer hover:text-black">
                         <span>Cập nhật</span>
-                        <ChevronDown size={14} className="text-slate-400" />
+                        <ChevronDown size={14} className="text-[#64748B]" />
                       </div>
                     </th>
 
@@ -679,12 +679,12 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#CBD5E1]/40">
                   {filteredHotels.map((hotel) => (
                     <tr
                       key={hotel.id}
                       data-testid="desktop-table-row"
-                      className="hover:bg-slate-50/60 transition-colors"
+                      className="hover:bg-[#F8F4E8]/50 transition-colors"
                     >
                       {/* 1. CHECKBOX + ẢNH */}
                       <td className="py-3.5 px-4">
@@ -693,11 +693,11 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                             type="checkbox"
                             checked={selectedHotels.includes(hotel.id)}
                             onChange={() => handleSelectOne(hotel.id)}
-                            className="w-4 h-4 rounded border-slate-300 text-black focus:ring-black cursor-pointer"
+                            className="w-4 h-4 rounded border-[#CBD5E1] text-black focus:ring-black cursor-pointer"
                           />
                           <div
                             className={`w-11 h-11 rounded-lg overflow-hidden shrink-0 flex items-center justify-center ${
-                              hotel.colorClass || 'bg-slate-200'
+                              hotel.colorClass || 'bg-[#CBD5E1]'
                             }`}
                           >
                             {hotel.thumbnail ? (
@@ -714,25 +714,25 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                       {/* 2. TÊN CƠ SỞ + LOẠI HÌNH */}
                       <td className="py-3.5 px-4">
                         <p className="font-semibold text-black text-xs">{hotel.name}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{hotel.type}</p>
+                        <p className="text-[11px] text-[#64748B] mt-0.5">{hotel.type}</p>
                       </td>
 
                       {/* 3. PHƯỜNG/XÃ */}
-                      <td className="py-3.5 px-4 text-slate-700 text-xs whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-black text-xs whitespace-nowrap">
                         {hotel.ward}
                       </td>
 
                       {/* 4. GIÁ THAM KHẢO */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {hotel.priceDisplay === 'Chưa nhập giá' ? (
-                          <span className="text-slate-400 text-xs">Chưa nhập giá</span>
+                          <span className="text-[#64748B] text-xs">Chưa nhập giá</span>
                         ) : (
                           <div>
-                            <p className="text-slate-800 text-xs font-medium">
+                            <p className="text-black text-xs font-medium">
                               {hotel.priceDisplay}
                             </p>
                             {hotel.priceUnit && (
-                              <p className="text-[11px] text-slate-400 mt-0.5">
+                              <p className="text-[11px] text-[#64748B] mt-0.5">
                                 {hotel.priceUnit}
                               </p>
                             )}
@@ -741,12 +741,12 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                       </td>
 
                       {/* 5. NGÀY TẠO */}
-                      <td className="py-3.5 px-4 text-slate-600 text-xs whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-[#64748B] text-xs whitespace-nowrap">
                         {formatDate(hotel.createdAt)}
                       </td>
 
                       {/* 6. CẬP NHẬT */}
-                      <td className="py-3.5 px-4 text-slate-600 text-xs whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-[#64748B] text-xs whitespace-nowrap">
                         {formatDate(hotel.updatedAt)}
                       </td>
 
@@ -766,7 +766,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             </div>
 
             {/* TABLE FOOTER / PAGINATION (FIGMA: Hiển thị 1–7 trên 7 cơ sở · 10 dòng mỗi trang & < 1 >) */}
-            <div className="py-3 px-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
+            <div className="py-3 px-4 border-t border-[#CBD5E1] flex items-center justify-between text-xs text-[#64748B]">
               <div>
                 Hiển thị 1–{filteredHotels.length} trên {hotels.length} cơ sở · 10 dòng mỗi trang
               </div>
@@ -774,7 +774,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-black hover:bg-slate-50 transition-colors"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -786,7 +786,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
                 </button>
                 <button
                   type="button"
-                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-black hover:bg-slate-50 transition-colors"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
                 >
                   <ChevronRight size={14} />
                 </button>
@@ -803,7 +803,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
         title="Cảnh báo thay đổi thông tin cơ sở"
       >
         <div data-testid="approved-edit-warning-modal" className="space-y-4">
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#FEE8A8]/60 text-[#B45309] border border-[#B45309]/20">
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#FEE8A8]/60 text-[#D97706] border border-[#D97706]/20">
             <ShieldAlert size={22} className="shrink-0 mt-0.5" />
             <div className="text-xs sm:text-sm leading-relaxed">
               <p className="font-bold">Lưu ý quan trọng theo quy định kiểm duyệt (FR-15):</p>
@@ -813,7 +813,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             </div>
           </div>
 
-          <p className="text-xs sm:text-sm text-slate-600">
+          <p className="text-xs sm:text-sm text-[#64748B]">
             Bạn có chắc chắn muốn chuyển sang giao diện chỉnh sửa cơ sở này không?
           </p>
 
@@ -821,7 +821,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             <button
               type="button"
               onClick={() => setWarningApprovedModalHotel(null)}
-              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 text-slate-600 hover:text-black hover:border-black transition-colors"
+              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-[#CBD5E1] text-[#64748B] hover:text-black hover:border-black transition-colors"
             >
               Hủy bỏ
             </button>
@@ -853,7 +853,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             </p>
           </div>
 
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-[#64748B]">
             Vui lòng nhấn &quot;Chỉnh sửa lại&quot; để bổ sung giấy tờ hoặc khắc phục các thông tin chưa đạt yêu cầu, sau đó gửi duyệt lại.
           </p>
 
@@ -861,7 +861,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             <button
               type="button"
               onClick={() => setRejectionModalHotel(null)}
-              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 text-slate-600 hover:text-black hover:border-black transition-colors"
+              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-[#CBD5E1] text-[#64748B] hover:text-black hover:border-black transition-colors"
             >
               Đóng
             </button>
@@ -882,7 +882,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
         title="Xác nhận xóa cơ sở lưu trú"
       >
         <div data-testid="delete-hotel-modal" className="space-y-4">
-          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm leading-relaxed">
+          <div className="p-3.5 rounded-xl bg-[#F4A9A9]/20 border border-[#DC2626]/30 text-[#DC2626] text-xs sm:text-sm leading-relaxed">
             Hành động này không thể hoàn tác. Toàn bộ thông tin, phòng và hình ảnh của cơ sở{' '}
             <strong>&quot;{deleteConfirmHotel?.name}&quot;</strong> sẽ bị xóa vĩnh viễn khỏi hệ thống.
           </div>
@@ -891,7 +891,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             <button
               type="button"
               onClick={() => setDeleteConfirmHotel(null)}
-              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 text-slate-600 hover:text-black hover:border-black transition-colors"
+              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-[#CBD5E1] text-[#64748B] hover:text-black hover:border-black transition-colors"
             >
               Hủy
             </button>
@@ -913,7 +913,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
         title="Rút lại yêu cầu kiểm duyệt"
       >
         <div data-testid="withdraw-hotel-modal" className="space-y-4">
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed">
             Bạn có chắc chắn muốn rút lại yêu cầu kiểm duyệt cho cơ sở{' '}
             <strong>&quot;{withdrawConfirmHotel?.name}&quot;</strong>? Trạng thái cơ sở sẽ được chuyển
             về <strong>Bản nháp</strong> để bạn có thể tiếp tục chỉnh sửa.
@@ -923,7 +923,7 @@ export const HostDashboardPage = ({ initialHotels, initialLoading = false }) => 
             <button
               type="button"
               onClick={() => setWithdrawConfirmHotel(null)}
-              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 text-slate-600 hover:text-black hover:border-black transition-colors"
+              className="px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border border-[#CBD5E1] text-[#64748B] hover:text-black hover:border-black transition-colors"
             >
               Hủy
             </button>

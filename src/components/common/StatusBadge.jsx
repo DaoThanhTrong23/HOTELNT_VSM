@@ -12,7 +12,7 @@ export const StatusBadge = ({ status }) => {
 
     case HOTEL_STATUS.PENDING:
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FEF3C7] text-[#D97706]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FEE8A8] text-[#D97706]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" />
           {HOTEL_STATUS_LABELS[status] || 'Chờ duyệt'}
         </span>
@@ -20,7 +20,7 @@ export const StatusBadge = ({ status }) => {
 
     case HOTEL_STATUS.REJECTED:
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FEE2E2] text-[#DC2626]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#F4A9A9]/40 text-[#DC2626]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
           {HOTEL_STATUS_LABELS[status] || 'Bị từ chối'}
         </span>
@@ -28,7 +28,7 @@ export const StatusBadge = ({ status }) => {
 
     case HOTEL_STATUS.HIDDEN:
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#F1F5F9] text-[#64748B]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#CBD5E1]/40 text-[#64748B]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#64748B]" />
           {HOTEL_STATUS_LABELS[status] || 'Ẩn'}
         </span>
@@ -37,7 +37,7 @@ export const StatusBadge = ({ status }) => {
     case HOTEL_STATUS.DRAFT:
     default:
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#F1F5F9] text-[#64748B]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#CBD5E1]/40 text-[#64748B]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#64748B]" />
           {HOTEL_STATUS_LABELS[status] || 'Bản nháp'}
         </span>
