@@ -1,216 +1,316 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '../../../context/AuthContext';
 import { HostProfilePage } from '../HostProfilePage';
-import { AuthContext } from '../../../context/AuthContext';
+import { ApiError, changeHostPassword, getHostProfile, updateHostProfile } from '../api/hostApi';
 
-const mockUser = {
-  name: 'Nguyễn Văn Quân',
-  phone: '0905123456',
-  email: 'quan.host@nhatranghotels.vn',
-  role: 'HOST',
+vi.mock('../api/hostApi', async (importOriginal) => ({
+  ...(await importOriginal()),
+  getHostProfile: vi.fn(),
+  updateHostProfile: vi.fn(),
+  changeHostPassword: vi.fn(),
+}));
+
+const PROFILE = {
+  id: 7,
+  vaiTro: 'HOST',
+  trangThai: 'ACTIVE',
+  hoTen: 'Khánh Quỳnh',
+  soDienThoai: '0918736452',
+  email: 'kq@gmail.vn',
+  cccd: '079******234',
+  ngayTao: '2026-09-01T00:00:00Z',
 };
 
-const renderComponent = (customUser = mockUser) => {
-  return render(
-    <AuthContext.Provider
-      value={{
-        user: customUser,
-        token: 'mock-token',
-        loading: false,
-        login: vi.fn(),
-        logout: vi.fn(),
-        isAuthenticated: true,
-        isHost: true,
-        isAdmin: false,
-      }}
-    >
-      <HostProfilePage />
-    </AuthContext.Provider>
+const renderPage = () =>
+  render(
+    <AuthProvider>
+      <MemoryRouter initialEntries={['/host/profile']}>
+        <Routes>
+          <Route path="/host/profile" element={<HostProfilePage />} />
+          <Route path="/login" element={<div>Trang đăng nhập</div>} />
+        </Routes>
+      </MemoryRouter>
+    </AuthProvider>,
   );
+
+const renderReady = async () => {
+  getHostProfile.mockResolvedValue(PROFILE);
+  renderPage();
+  await screen.findByDisplayValue('Khánh Quỳnh');
 };
 
-describe('HostProfilePage (TDD Suite: PROF-01 -> PROF-10)', () => {
+const nameInput = () => screen.getByLabelText('Họ và tên');
+const phoneInput = () => screen.getByLabelText('Số điện thoại di động');
+const saveButton = () => screen.getByRole('button', { name: 'Lưu thông tin' });
+const cancelButton = () => screen.getByRole('button', { name: 'Hủy thay đổi' });
+const oldPwd = () => screen.getByLabelText('Mật khẩu hiện tại');
+const newPwd = () => screen.getByLabelText('Mật khẩu mới');
+const confirmPwd = () => screen.getByLabelText('Xác nhận mật khẩu mới');
+const pwdButton = () => screen.getByRole('button', { name: 'Cập nhật mật khẩu' });
+
+const fillPasswords = (oldValue, newValue, confirmValue = newValue) => {
+  fireEvent.change(oldPwd(), { target: { value: oldValue } });
+  fireEvent.change(newPwd(), { target: { value: newValue } });
+  fireEvent.change(confirmPwd(), { target: { value: confirmValue } });
+};
+
+describe('HostProfilePage: profile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  // PROF-01: Email field is readOnly, cannot be edited, has lock icon, CBD5E1 styling
-  it('PROF-01: locks email field with readOnly attribute and legal protection note (FR-13)', () => {
-    renderComponent();
+  it('PROF-01: shows a spinner and loads the profile once', () => {
+    getHostProfile.mockReturnValue(new Promise(() => {}));
+    renderPage();
 
-    const emailInput = screen.getByTestId('readonly-email-input');
-    expect(emailInput).toBeInTheDocument();
-    expect(emailInput).toHaveAttribute('readonly');
-    expect(emailInput).toHaveValue('quan.host@nhatranghotels.vn');
-
-    // Attempting to type should not change value
-    fireEvent.change(emailInput, { target: { value: 'hacker@malicious.com' } });
-    expect(emailInput).toHaveValue('quan.host@nhatranghotels.vn');
-
-    // Check lock icon indicator
-    expect(screen.getByTestId('email-lock-icon')).toBeInTheDocument();
+    expect(screen.getByText('Đang tải hồ sơ...')).toBeInTheDocument();
+    expect(getHostProfile).toHaveBeenCalledTimes(1);
   });
 
-  // PROF-02: CCCD field is readOnly, displays masked format 056******432 and lock icon
-  it('PROF-02: locks and masks legal CCCD number as 056******432 by default (FR-13)', () => {
-    renderComponent();
+  it('PROF-02: renders API values, read-only identity fields and no Figma-only fields', async () => {
+    await renderReady();
 
-    const cccdInput = screen.getByTestId('readonly-cccd-input');
-    expect(cccdInput).toBeInTheDocument();
-    expect(cccdInput).toHaveAttribute('readonly');
-    expect(cccdInput).toHaveValue('056******432');
-    expect(screen.getByTestId('cccd-lock-icon')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hồ sơ cá nhân' })).toBeInTheDocument();
+    expect(phoneInput()).toHaveValue('0918736452');
+    expect(screen.getByLabelText('Căn cước công dân')).toHaveValue('079******234');
+    expect(screen.getByLabelText('Căn cước công dân')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Địa chỉ Email')).toHaveValue('kq@gmail.vn');
+    expect(screen.getByLabelText('Địa chỉ Email')).toHaveAttribute('readonly');
+    expect(screen.getByTestId('profile-avatar')).toHaveTextContent('Q');
+    expect(screen.getByText('Host')).toBeInTheDocument();
+
+    expect(screen.queryByText(/Giới tính/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ngày sinh/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /CCCD/ })).not.toBeInTheDocument();
   });
 
-  // PROF-03: Toggle CCCD eye icon switches between masked 056******432 and full 056098765432
-  it('PROF-03: allows host to toggle unmasking CCCD number to verify full 12 digits', () => {
-    renderComponent();
+  it('PROF-03: shows ErrorState on 500 and recovers on retry', async () => {
+    getHostProfile
+      .mockRejectedValueOnce(new ApiError({ status: 500, code: 'INTERNAL_ERROR' }))
+      .mockResolvedValueOnce(PROFILE);
+    renderPage();
 
-    const cccdInput = screen.getByTestId('readonly-cccd-input');
-    const toggleBtn = screen.getByTestId('toggle-cccd-visibility-btn');
+    expect(await screen.findByText('Hệ thống đang gặp sự cố. Vui lòng thử lại sau.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
 
-    expect(cccdInput).toHaveValue('056******432');
-
-    // Click to reveal
-    fireEvent.click(toggleBtn);
-    expect(cccdInput).toHaveValue('056098765432');
-
-    // Click again to mask
-    fireEvent.click(toggleBtn);
-    expect(cccdInput).toHaveValue('056******432');
+    expect(await screen.findByDisplayValue('Khánh Quỳnh')).toBeInTheDocument();
+    expect(getHostProfile).toHaveBeenCalledTimes(2);
   });
 
-  // PROF-04: Phone number validation for 10 digits starting with 0
-  it('PROF-04: validates Vietnamese mobile phone format and blocks invalid submissions', () => {
-    renderComponent();
+  it('PROF-04: shows the API message for ACCOUNT_LOCKED', async () => {
+    getHostProfile.mockRejectedValue(
+      new ApiError({ status: 403, code: 'ACCOUNT_LOCKED', message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.' }),
+    );
+    renderPage();
 
-    const phoneInput = screen.getByTestId('profile-phone-input');
-    const submitBtn = screen.getByTestId('save-profile-btn');
+    expect(await screen.findByText('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.')).toBeInTheDocument();
+  });
 
-    // Enter invalid phone: 9 digits
-    fireEvent.change(phoneInput, { target: { value: '090123456' } });
-    fireEvent.click(submitBtn);
+  it('PROF-05: disables both buttons when nothing changed', async () => {
+    await renderReady();
+    expect(saveButton()).toBeDisabled();
+    expect(cancelButton()).toBeDisabled();
+  });
 
+  it('PROF-06: "Hủy thay đổi" restores server values without calling the API', async () => {
+    await renderReady();
+    fireEvent.change(nameInput(), { target: { value: 'Tên mới' } });
+    expect(cancelButton()).toBeEnabled();
+
+    fireEvent.click(cancelButton());
+    expect(nameInput()).toHaveValue('Khánh Quỳnh');
+    expect(updateHostProfile).not.toHaveBeenCalled();
+  });
+
+  it('PROF-07: strips letters from the phone, flags the format and blocks saving', async () => {
+    await renderReady();
+    fireEvent.change(phoneInput(), { target: { value: '09ab12' } });
+
+    expect(phoneInput()).toHaveValue('0912');
+    expect(screen.getByText('Số điện thoại phải gồm 10 chữ số, bắt đầu bằng số 0.')).toBeInTheDocument();
+    expect(phoneInput()).toHaveAttribute('aria-invalid', 'true');
+    expect(saveButton()).toBeDisabled();
+    fireEvent.submit(saveButton().closest('form'));
+    expect(updateHostProfile).not.toHaveBeenCalled();
+  });
+
+  it('PROF-08: requires a name and caps it at 100 characters', async () => {
+    await renderReady();
+    expect(nameInput()).toHaveAttribute('maxLength', '100');
+
+    fireEvent.change(nameInput(), { target: { value: '   ' } });
+    expect(screen.getByText('Vui lòng nhập họ và tên.')).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+    expect(updateHostProfile).not.toHaveBeenCalled();
+  });
+
+  it('PROF-09: sends only the changed phone and shows a toast', async () => {
+    await renderReady();
+    updateHostProfile.mockResolvedValue({ id: 7, hoTen: 'Khánh Quỳnh', soDienThoai: '0905111222', email: 'kq@gmail.vn' });
+
+    fireEvent.change(phoneInput(), { target: { value: '0905111222' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(updateHostProfile).toHaveBeenCalledWith({ soDienThoai: '0905111222' }));
+    expect(await screen.findByText('Cập nhật thông tin thành công')).toBeInTheDocument();
+    expect(phoneInput()).toHaveValue('0905111222');
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it('PROF-10: shows ACCOUNT_DUPLICATED under the phone field', async () => {
+    await renderReady();
+    updateHostProfile.mockRejectedValue(
+      new ApiError({ status: 409, code: 'ACCOUNT_DUPLICATED', message: 'Email, số điện thoại hoặc CCCD đã được sử dụng.' }),
+    );
+
+    fireEvent.change(phoneInput(), { target: { value: '0905111222' } });
+    fireEvent.click(saveButton());
+
+    expect(await screen.findByText('Email, số điện thoại hoặc CCCD đã được sử dụng.')).toBeInTheDocument();
+    expect(phoneInput()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('PROF-11: maps VALIDATION_ERROR details[] to the name field', async () => {
+    await renderReady();
+    updateHostProfile.mockRejectedValue(
+      new ApiError({
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        details: [{ field: 'hoTen', message: 'Họ tên chứa ký tự không hợp lệ' }],
+      }),
+    );
+
+    fireEvent.change(nameInput(), { target: { value: 'Tên <script>' } });
+    fireEvent.click(saveButton());
+
+    expect(await screen.findByText('Họ tên chứa ký tự không hợp lệ')).toBeInTheDocument();
+    expect(nameInput()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('PROF-12: shows the SRS banner on network or server failure', async () => {
+    await renderReady();
+    updateHostProfile.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+
+    fireEvent.change(nameInput(), { target: { value: 'Tên mới' } });
+    fireEvent.click(saveButton());
+
+    const banner = await screen.findByRole('alert');
+    expect(banner).toHaveTextContent('Cập nhật thông tin không thành công do sự cố hệ thống. Vui lòng thử lại sau.');
+  });
+
+  it('PROF-13: calls the API once on a double click', async () => {
+    await renderReady();
+    updateHostProfile.mockReturnValue(new Promise(() => {}));
+
+    fireEvent.change(nameInput(), { target: { value: 'Tên mới' } });
+    const button = saveButton();
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.submit(button.closest('form'));
+
+    expect(updateHostProfile).toHaveBeenCalledTimes(1);
+    expect(button).toHaveTextContent('Đang lưu...');
+    expect(button).toBeDisabled();
+  });
+});
+
+describe('HostProfilePage: logout on mobile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.setItem('token', 'test-token');
+    localStorage.setItem('user', JSON.stringify({ name: 'Khánh Quỳnh', role: 'HOST' }));
+  });
+
+  it('PROF-14: "Đăng xuất" at the bottom of the page logs out (Figma mobile Hồ sơ)', async () => {
+    await renderReady();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng xuất' }));
+
+    expect(screen.getByText('Trang đăng nhập')).toBeInTheDocument();
+    expect(localStorage.getItem('token')).toBeNull();
+  });
+});
+
+describe('HostProfilePage: change password', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('PWD-01: lists the missing criteria and blocks submit', async () => {
+    await renderReady();
+    fillPasswords('Old@1234', 'Abcdefg1');
+
+    expect(screen.getByText('Còn thiếu: ký tự đặc biệt')).toBeInTheDocument();
+    expect(pwdButton()).toBeDisabled();
+    fireEvent.submit(pwdButton().closest('form'));
+    expect(changeHostPassword).not.toHaveBeenCalled();
+  });
+
+  it('PWD-02: accepts a password that meets all 5 criteria', async () => {
+    await renderReady();
+    fillPasswords('Old@1234', 'Abcdefg1_');
+
+    expect(screen.queryByText(/Còn thiếu/)).not.toBeInTheDocument();
+    expect(pwdButton()).toBeEnabled();
+  });
+
+  it('PWD-03: flags a mismatched confirmation', async () => {
+    await renderReady();
+    fillPasswords('Old@1234', 'Abcdefg1_', 'Abcdefg1-');
+
+    expect(screen.getByText('Xác nhận mật khẩu mới không trùng khớp.')).toBeInTheDocument();
+    expect(pwdButton()).toBeDisabled();
+    expect(changeHostPassword).not.toHaveBeenCalled();
+  });
+
+  it('PWD-04: rejects a new password equal to the current one', async () => {
+    await renderReady();
+    fillPasswords('Abcdefg1_', 'Abcdefg1_');
+
+    expect(screen.getByText('Mật khẩu mới phải khác mật khẩu hiện tại.')).toBeInTheDocument();
+    expect(pwdButton()).toBeDisabled();
+  });
+
+  it('PWD-05: submits, clears the fields and shows a toast', async () => {
+    await renderReady();
+    changeHostPassword.mockResolvedValue({ message: 'Đổi mật khẩu thành công' });
+    fillPasswords('Old@1234', 'Abcdefg1_');
+    fireEvent.click(pwdButton());
+
+    await waitFor(() =>
+      expect(changeHostPassword).toHaveBeenCalledWith({ oldPassword: 'Old@1234', newPassword: 'Abcdefg1_' }),
+    );
     expect(
-      screen.getByText(/Số điện thoại phải gồm 10 chữ số bắt đầu bằng số 0/i)
+      await screen.findByText('Đổi mật khẩu thành công. Các phiên đăng nhập khác đã được đăng xuất.'),
     ).toBeInTheDocument();
-
-    // Enter invalid phone: does not start with 0
-    fireEvent.change(phoneInput, { target: { value: '1905123456' } });
-    fireEvent.click(submitBtn);
-
-    expect(
-      screen.getByText(/Số điện thoại phải gồm 10 chữ số bắt đầu bằng số 0/i)
-    ).toBeInTheDocument();
+    expect(oldPwd()).toHaveValue('');
+    expect(newPwd()).toHaveValue('');
+    expect(confirmPwd()).toHaveValue('');
   });
 
-  // PROF-05: Submit name and valid phone successfully, displays green success toast
-  it('PROF-05: displays green success toast when updating contact information with valid data', () => {
-    renderComponent();
+  it('PWD-06: shows OLD_PASSWORD_INCORRECT under the current password', async () => {
+    await renderReady();
+    changeHostPassword.mockRejectedValue(
+      new ApiError({ status: 400, code: 'OLD_PASSWORD_INCORRECT', message: 'Mật khẩu cũ không chính xác.' }),
+    );
+    fillPasswords('Wrong@123', 'Abcdefg1_');
+    fireEvent.click(pwdButton());
 
-    const nameInput = screen.getByTestId('profile-name-input');
-    const phoneInput = screen.getByTestId('profile-phone-input');
-    const submitBtn = screen.getByTestId('save-profile-btn');
-
-    fireEvent.change(nameInput, { target: { value: 'Nguyễn Văn Quân Mới' } });
-    fireEvent.change(phoneInput, { target: { value: '0912345678' } });
-    fireEvent.click(submitBtn);
-
-    const successToast = screen.getByTestId('profile-feedback-toast');
-    expect(successToast).toBeInTheDocument();
-    expect(successToast.className).toMatch(/bg-\[#DCFCE7\]|text-\[#15803D\]/);
-    expect(screen.getByText(/Cập nhật thông tin liên lạc thành công/i)).toBeInTheDocument();
+    expect(await screen.findByText('Mật khẩu cũ không chính xác.')).toBeInTheDocument();
+    expect(oldPwd()).toHaveAttribute('aria-invalid', 'true');
   });
 
-  // PROF-06: Password strength indicator for new password (FR-11)
-  it('PROF-06: evaluates password strength dynamically according to 5 criteria (FR-11)', () => {
-    renderComponent();
+  it('PWD-07: shows a server VALIDATION_ERROR under the new password', async () => {
+    await renderReady();
+    changeHostPassword.mockRejectedValue(
+      new ApiError({ status: 400, code: 'VALIDATION_ERROR', message: 'Mật khẩu mới không đạt chuẩn.' }),
+    );
+    fillPasswords('Old@1234', 'Abcdefg1_');
+    fireEvent.click(pwdButton());
 
-    const newPasswordInput = screen.getByTestId('new-password-input');
-    const strengthMeter = screen.getByTestId('password-strength-meter');
-
-    // Weak password: only 6 chars
-    fireEvent.change(newPasswordInput, { target: { value: '123456' } });
-    expect(strengthMeter).toHaveAttribute('data-strength', 'weak');
-
-    // Strong password meeting all 5 requirements: >=8 chars, uppercase, lowercase, number, special char
-    fireEvent.change(newPasswordInput, { target: { value: 'HotelNT@2026' } });
-    expect(strengthMeter).toHaveAttribute('data-strength', 'strong');
-  });
-
-  // PROF-07: Confirm password mismatch error in realtime
-  it('PROF-07: displays realtime error and blocks submission when password confirmation does not match', () => {
-    renderComponent();
-
-    const newPasswordInput = screen.getByTestId('new-password-input');
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input');
-    const submitPasswordBtn = screen.getByTestId('change-password-btn');
-
-    fireEvent.change(newPasswordInput, { target: { value: 'HotelNT@2026' } });
-    fireEvent.change(confirmPasswordInput, { target: { value: 'HotelNT@9999' } });
-
-    expect(
-      screen.getByText(/Xác nhận mật khẩu mới không trùng khớp/i)
-    ).toBeInTheDocument();
-
-    fireEvent.click(submitPasswordBtn);
-    // Should block and keep showing error
-    expect(
-      screen.getByText(/Xác nhận mật khẩu mới không trùng khớp/i)
-    ).toBeInTheDocument();
-  });
-
-  // PROF-08: Change password succeeds when valid, shows success toast and clears password fields
-  it('PROF-08: resets password inputs and shows success feedback on valid password change', () => {
-    renderComponent();
-
-    const oldPasswordInput = screen.getByTestId('old-password-input');
-    const newPasswordInput = screen.getByTestId('new-password-input');
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input');
-    const submitPasswordBtn = screen.getByTestId('change-password-btn');
-
-    fireEvent.change(oldPasswordInput, { target: { value: 'CurrentPass@123' } });
-    fireEvent.change(newPasswordInput, { target: { value: 'HotelNT@2026' } });
-    fireEvent.change(confirmPasswordInput, { target: { value: 'HotelNT@2026' } });
-
-    fireEvent.click(submitPasswordBtn);
-
-    const successToast = screen.getByTestId('password-feedback-toast');
-    expect(successToast).toBeInTheDocument();
-    expect(screen.getByText(/Đổi mật khẩu thành công/i)).toBeInTheDocument();
-
-    // Inputs cleared
-    expect(oldPasswordInput).toHaveValue('');
-    expect(newPasswordInput).toHaveValue('');
-    expect(confirmPasswordInput).toHaveValue('');
-  });
-
-  // PROF-09: Dev Kit black color check (buttons have bg-black text-white)
-  it('PROF-09: enforces Dev Kit black color (#000000) for all primary form submit buttons', () => {
-    renderComponent();
-
-    const saveProfileBtn = screen.getByTestId('save-profile-btn');
-    const changePasswordBtn = screen.getByTestId('change-password-btn');
-
-    expect(saveProfileBtn.className).toMatch(/bg-black/);
-    expect(saveProfileBtn.className).toMatch(/text-white/);
-    expect(saveProfileBtn.className).not.toMatch(/102A3A/);
-
-    expect(changePasswordBtn.className).toMatch(/bg-black/);
-    expect(changePasswordBtn.className).toMatch(/text-white/);
-    expect(changePasswordBtn.className).not.toMatch(/102A3A/);
-  });
-
-  // PROF-10: Touch target ergonomics: submit buttons have min-h-[44px], toggle buttons have proper dimensions
-  it('PROF-10: ensures touch target ergonomics (min 44px) for mobile usability', () => {
-    renderComponent();
-
-    const saveProfileBtn = screen.getByTestId('save-profile-btn');
-    const changePasswordBtn = screen.getByTestId('change-password-btn');
-    const toggleCccdBtn = screen.getByTestId('toggle-cccd-visibility-btn');
-
-    expect(saveProfileBtn.className).toMatch(/min-h-\[44px\]|h-11/);
-    expect(changePasswordBtn.className).toMatch(/min-h-\[44px\]|h-11/);
-    expect(toggleCccdBtn.className).toMatch(/min-h-\[44px\]|w-11|h-11|p-2\.5|p-3/);
+    expect(await screen.findByText('Mật khẩu mới không đạt chuẩn.')).toBeInTheDocument();
+    expect(newPwd()).toHaveAttribute('aria-invalid', 'true');
   });
 });
