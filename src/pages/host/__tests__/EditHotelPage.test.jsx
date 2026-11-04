@@ -94,9 +94,9 @@ describe('EditHotelPage', () => {
     );
     renderEdit();
 
-    expect(await screen.findByText('Bạn không có quyền truy cập')).toBeInTheDocument();
-    expect(screen.getByText('Bạn không có quyền chỉnh sửa cơ sở lưu trú này.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Về danh sách cơ sở' })).toHaveAttribute('href', '/host/dashboard');
+    expect(await screen.findByText('Bạn không có quyền quản lí cơ sở này')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở này thuộc về tài khoản khác hoặc bạn chưa được cấp quyền.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Quay lại/ })).toHaveAttribute('href', '/host/dashboard');
   });
 
   it('EDIT-02: shows not-found for 404 and for a non-numeric id', async () => {
@@ -238,7 +238,7 @@ describe('EditHotelPage', () => {
     expect(screen.getByText('Quản trị viên đã từ chối cơ sở này')).toBeInTheDocument();
     expect(screen.getByText('Lý do: Ảnh bìa không đúng với cơ sở.')).toBeInTheDocument();
     expect(screen.getByText(`Từ chối ngày ${formatDate('2026-09-20T08:00:00Z')}`)).toBeInTheDocument();
-    expect(screen.getByText('Sau khi gửi lại, cơ sở chuyển sang Chờ duyệt')).toBeInTheDocument();
+    expect(screen.getByText('Sau khi gửi lại, cơ sở sẽ chuyển sang Chờ duyệt')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Gửi kiểm duyệt lại' }));
 

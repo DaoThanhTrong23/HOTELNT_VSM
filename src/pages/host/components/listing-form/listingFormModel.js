@@ -369,3 +369,126 @@ export const checklistKeysFromDetails = (details) =>
 
 export const fieldId = (path) => `listing-${path.replace(/\./g, '-')}`;
 export const errorId = (path) => `${fieldId(path)}-error`;
+
+// Smart mock generator for preview & offline testing with zero backend dependencies
+export const getMockListingDetail = (maCSLT, requestedStatus) => {
+  const id = Number(maCSLT) || 1;
+  const statusUpper = requestedStatus ? requestedStatus.toUpperCase() : null;
+
+  let targetStatus = 'APPROVED';
+  if (statusUpper) {
+    targetStatus = statusUpper;
+  } else if (id === 2) {
+    targetStatus = 'REJECTED';
+  } else if (id === 3) {
+    targetStatus = 'PENDING';
+  } else if (id === 4) {
+    targetStatus = 'HIDDEN';
+  } else if (id === 5) {
+    targetStatus = 'DRAFT';
+  }
+
+  const isRejectedOrHidden = targetStatus === 'REJECTED' || targetStatus === 'HIDDEN';
+  const hotelName = isRejectedOrHidden ? 'Trần Phú Central Hotel' : 'Sea Breeze Homestay';
+  const address = isRejectedOrHidden ? '45 Trần Phú' : '12 Trần Phú';
+  const propertyType = isRejectedOrHidden ? 1 : 2; // 1: Khách sạn, 2: Homestay
+  const price = isRejectedOrHidden ? 850000 : 650000;
+  const description = isRejectedOrHidden
+    ? 'Khách sạn 3 sao trung tâm thành phố.'
+    : 'Homestay 8 phòng cách biển 2 phút đi bộ, có ban công nhìn ra biển.';
+  const contact = isRejectedOrHidden
+    ? { soDienThoai: '0258 3812 345', zalo: '0258 3812 345', facebook: 'https://facebook.com/tranphucentral' }
+    : { soDienThoai: '0905 123 456', zalo: 'zalo.me/0905123456', facebook: 'https://facebook.com/seabreezehomestay' };
+  const amenities = isRejectedOrHidden ? [1, 5, 7, 8] : [1, 2, 3];
+  const lat = isRejectedOrHidden ? 12.2415 : 12.2388;
+  const lng = isRejectedOrHidden ? 109.195 : 109.1967;
+
+  const allowedActions =
+    targetStatus === 'APPROVED'
+      ? ['PREVIEW', 'EDIT']
+      : targetStatus === 'PENDING'
+      ? ['PREVIEW', 'WITHDRAW']
+      : targetStatus === 'REJECTED'
+      ? ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE']
+      : targetStatus === 'HIDDEN'
+      ? ['PREVIEW', 'EDIT', 'SUBMIT']
+      : ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE'];
+
+  return {
+    maCSLT: id,
+    tenCSLT: hotelName,
+    maLoai: propertyType,
+    tenLoai: propertyType === 1 ? 'Khách sạn' : 'Homestay',
+    maPhuong: 1,
+    tenPhuong: 'Lộc Thọ',
+    diaChiChiTiet: address,
+    moTa: description,
+    lienHe: contact,
+    gia: price,
+    maTienIch: amenities,
+    latitude: lat,
+    longitude: lng,
+    trangThai: targetStatus,
+    ngayTao: '2026-09-01T08:00:00Z',
+    ngayCapNhat: '2026-09-24T14:30:00Z',
+    ngayGuiDuyet: targetStatus === 'PENDING' ? '2026-09-24T15:00:00Z' : null,
+    lyDoTuChoi:
+      targetStatus === 'REJECTED'
+        ? 'Ảnh bìa không đúng với cơ sở và địa chỉ chưa khớp với vị trí ghim trên bản đồ. Vui lòng sửa rồi gửi kiểm duyệt lại.'
+        : null,
+    lyDoViPham:
+      targetStatus === 'HIDDEN'
+        ? 'Phát hiện vi phạm tiêu chuẩn cộng đồng về thông tin liên hệ. Vui lòng sửa lại để được xem xét hiển thị.'
+        : null,
+    soAnh: 4,
+    soVideo: 1,
+    media: [
+      {
+        mediaId: 101,
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600',
+        isCover: true,
+        thuTu: 1,
+      },
+      {
+        mediaId: 102,
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=600',
+        isCover: false,
+        thuTu: 2,
+      },
+      {
+        mediaId: 103,
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600',
+        isCover: false,
+        thuTu: 3,
+      },
+      {
+        mediaId: 104,
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600',
+        isCover: false,
+        thuTu: 4,
+      },
+      {
+        mediaId: 105,
+        type: 'VIDEO',
+        url: 'https://example.com/video.mp4',
+        tenFile: 'gioi-thieu-homestay.mp4',
+        dungLuong: 48 * 1024 * 1024,
+        thuTu: 5,
+      },
+    ],
+    checklistGuiDuyet: {
+      ten: true,
+      diaChi: true,
+      phuong: true,
+      toaDo: true,
+      anhToiThieu3: true,
+      tienIchToiThieu1: true,
+      gia: true,
+    },
+    allowedActions,
+  };
+};
