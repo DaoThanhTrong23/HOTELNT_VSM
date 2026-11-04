@@ -9,14 +9,60 @@ export const STEPS = [
   { id: 4, label: 'Bản đồ' },
 ];
 
-// Defaults when /filter-options does not send limits (values from API_DESIGN.xlsx).
-export const DEFAULT_PRICE_RANGE = { min: 500_000, max: 100_000_000 };
+// Defaults when /filter-options does not send limits (values from API_DESIGN.xlsx and SRS FR-17).
+export const DEFAULT_PRICE_RANGE = { min: 50_000, max: 100_000_000 };
 export const DEFAULT_MAP_BOUNDS = {
   latMin: NHA_TRANG_MAP_BOUNDS.LAT_MIN,
   latMax: NHA_TRANG_MAP_BOUNDS.LAT_MAX,
   lngMin: NHA_TRANG_MAP_BOUNDS.LNG_MIN,
   lngMax: NHA_TRANG_MAP_BOUNDS.LNG_MAX,
 };
+
+export const DEFAULT_PROPERTY_TYPES = [
+  { maLoai: 1, tenLoai: 'Khách sạn' },
+  { maLoai: 2, tenLoai: 'Homestay' },
+  { maLoai: 3, tenLoai: 'Resort' },
+  { maLoai: 4, tenLoai: 'Căn hộ du lịch' },
+  { maLoai: 5, tenLoai: 'Nhà nghỉ' },
+  { maLoai: 6, tenLoai: 'Villa' },
+];
+
+export const DEFAULT_WARDS = [
+  { maPhuong: 1, tenPhuong: 'Lộc Thọ' },
+  { maPhuong: 2, tenPhuong: 'Vạn Thạnh' },
+  { maPhuong: 3, tenPhuong: 'Vĩnh Hải' },
+  { maPhuong: 4, tenPhuong: 'Vĩnh Hòa' },
+  { maPhuong: 5, tenPhuong: 'Vĩnh Phước' },
+  { maPhuong: 6, tenPhuong: 'Vĩnh Thọ' },
+  { maPhuong: 7, tenPhuong: 'Phước Hải' },
+  { maPhuong: 8, tenPhuong: 'Tân Lập' },
+  { maPhuong: 9, tenPhuong: 'Phước Tân' },
+  { maPhuong: 10, tenPhuong: 'Phương Sài' },
+  { maPhuong: 11, tenPhuong: 'Xương Huân' },
+  { maPhuong: 12, tenPhuong: 'Vạn Thắng' },
+  { maPhuong: 13, tenPhuong: 'Phước Hòa' },
+  { maPhuong: 14, tenPhuong: 'Phước Tiến' },
+];
+
+export const DEFAULT_AMENITIES = [
+  { maTienIch: 1, tenTienIch: 'Wifi miễn phí' },
+  { maTienIch: 2, tenTienIch: 'Hồ bơi vô cực' },
+  { maTienIch: 3, tenTienIch: 'Giáp biển' },
+  { maTienIch: 4, tenTienIch: 'Bãi đỗ xe ô tô' },
+  { maTienIch: 5, tenTienIch: 'Điều hòa nhiệt độ' },
+  { maTienIch: 6, tenTienIch: 'Buffet sáng' },
+  { maTienIch: 7, tenTienIch: 'Thang máy' },
+  { maTienIch: 8, tenTienIch: 'Lễ tân 24/7' },
+  { maTienIch: 9, tenTienIch: 'Dọn phòng hàng ngày' },
+  { maTienIch: 10, tenTienIch: 'Phòng gym / Fitness' },
+];
+
+export const DEFAULT_NEARBY_PLACES = [
+  { maTienIch: 101, tenTienIch: 'Gần bãi biển' },
+  { maTienIch: 102, tenTienIch: 'Gần chợ Đầm' },
+  { maTienIch: 103, tenTienIch: 'Gần Vinpearl Harbour' },
+  { maTienIch: 104, tenTienIch: 'Gần Tháp Bà Ponagar' },
+];
 
 export const NAME_MAX_LENGTH = 150;
 export const ADDRESS_MAX_LENGTH = 200;
@@ -29,7 +75,7 @@ export const CHECKLIST_ITEMS = [
   { key: 'toaDo', label: 'Tọa độ trong khu vực Nha Trang' },
   { key: 'anhToiThieu3', label: 'Ít nhất 3 ảnh' },
   { key: 'tienIchToiThieu1', label: 'Ít nhất 1 tiện ích' },
-  { key: 'gia', label: 'Giá hợp lệ' },
+  { key: 'gia', label: 'Khoảng giá hợp lệ' },
 ];
 
 const PHONE_PATTERN = /^0\d{9}$/;
@@ -42,11 +88,16 @@ const finiteOr = (value, fallback) => (Number.isFinite(value) ? value : fallback
 export const resolveOptions = (filterOptions = {}) => {
   const priceRange = filterOptions?.priceRange ?? {};
   const mapBounds = filterOptions?.mapBounds ?? {};
+  const wards = list(filterOptions?.wards);
+  const propertyTypes = list(filterOptions?.propertyTypes);
+  const amenities = list(filterOptions?.amenities);
+  const nearbyPlaces = list(filterOptions?.nearbyPlaces);
+
   return {
-    wards: list(filterOptions?.wards),
-    propertyTypes: list(filterOptions?.propertyTypes),
-    amenities: list(filterOptions?.amenities),
-    nearbyPlaces: list(filterOptions?.nearbyPlaces),
+    wards: wards.length > 0 ? wards : DEFAULT_WARDS,
+    propertyTypes: propertyTypes.length > 0 ? propertyTypes : DEFAULT_PROPERTY_TYPES,
+    amenities: amenities.length > 0 ? amenities : DEFAULT_AMENITIES,
+    nearbyPlaces: nearbyPlaces.length > 0 ? nearbyPlaces : DEFAULT_NEARBY_PLACES,
     priceRange: {
       min: finiteOr(priceRange.giaMin, DEFAULT_PRICE_RANGE.min),
       max: finiteOr(priceRange.giaMax, DEFAULT_PRICE_RANGE.max),
