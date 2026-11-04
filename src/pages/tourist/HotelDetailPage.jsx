@@ -458,15 +458,13 @@ export const HotelDetailPage = () => {
                 </a>
               )}
               {facebook && (
-                <a href={facebook} target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-[#F8F4E8] text-[10px] font-medium text-black hover:bg-[#F1EBD8] transition-colors">
-                  <FacebookLogo size={24} className="absolute left-10" />
-                  Facebook
+                <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Fanpage Facebook" title="Fanpage Facebook" className="flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-[#F8F4E8] hover:bg-[#F1EBD8] transition-colors">
+                  <FacebookLogo size={24} />
                 </a>
               )}
               {zalo && (
-                <a href={zalo} target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-white text-[10px] font-medium text-black hover:bg-[#F8F4E8] transition-colors">
-                  <ZaloLogo size={24} className="absolute left-10" />
-                  Zalo
+                <a href={zalo} target="_blank" rel="noopener noreferrer" aria-label="Chat Zalo" title="Chat Zalo" className="flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-white hover:bg-[#F8F4E8] transition-colors">
+                  <ZaloLogo size={24} />
                 </a>
               )}
               {!tel && !facebook && !zalo && (
