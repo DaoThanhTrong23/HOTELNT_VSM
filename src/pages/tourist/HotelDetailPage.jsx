@@ -1,250 +1,252 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import {
-  MapPin,
-  Phone,
-  MessageCircle,
-  Calendar,
-  Navigation,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  LocateFixed,
-  ExternalLink,
-  Loader2,
-  ImageOff,
-  ArrowLeft,
-} from 'lucide-react';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { useParams } from 'react-router-dom';
+import { Check, ChevronLeft, ChevronRight, X, Phone, MapPin, Loader2, Navigation, ImageOff } from 'lucide-react';
+import { formatDate } from '../../utils/formatters';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { ErrorState } from '../../components/common/ErrorState';
-import { EmptyState } from '../../components/common/EmptyState';
 import { AmenityIcon } from '../../components/common/AmenityIcon';
+import { FacebookLogo, ZaloLogo } from '../../components/common/icons/BrandIcons';
 import { listingService } from '../../services/listingService';
 import {
   getCurrentPosition,
   getGeolocationPermission,
   formatDistance,
+  estimateDriveMinutes,
   googleMapsEmbedUrl,
   googleMapsDirectionsUrl,
 } from '../../utils/geo';
-import {
-  buildTelLink,
-  buildZaloLink,
-  buildFacebookLink,
-  formatPhoneDisplay,
-} from '../../utils/contactLinks';
-import { ROUTES } from '../../constants/routes';
+import { buildTelLink, buildZaloLink, buildFacebookLink } from '../../utils/contactLinks';
 
-const FacebookIcon = ({ size = 18, className = '' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-  </svg>
-);
+const BODY_CLASS_BOTTOM_BAR = 'has-mobile-bottom-bar';
 
-/* ------------------------------------------------------------------ */
-/* CAROUSEL ẢNH LỚN + HÀNG THUMBNAIL CUỘN                              */
-/* ------------------------------------------------------------------ */
-const ImageGallery = ({ images, name }) => {
-  const [active, setActive] = useState(0);
+// Giá theo định dạng thiết kế: 999.999đ
+const formatPrice = (value) =>
+  value === null || value === undefined ? 'Liên hệ' : `${Number(value).toLocaleString('vi-VN')}đ`;
+
+// Số điện thoại theo định dạng 0123.456.789
+const formatPhoneDots = (phone) => {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length === 10) return `${d.slice(0, 4)}.${d.slice(4, 7)}.${d.slice(7)}`;
+  if (d.length === 11) return `${d.slice(0, 4)}.${d.slice(4, 7)}.${d.slice(7)}`;
+  return phone;
+};
+
+const SafeImage = ({ src, alt, className = '', ...rest }) => {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div className={`flex items-center justify-center bg-[#E5E7EB] text-[#94A3B8] ${className}`}>
+        <ImageOff size={24} />
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} onError={() => setFailed(true)} className={`object-cover ${className}`} {...rest} />;
+};
+
+/* ================================================================== */
+/* LIGHTBOX: CAROUSEL ẢNH LỚN + HÀNG THUMBNAIL CUỘN                    */
+/* ================================================================== */
+const Lightbox = ({ images, startIndex, name, onClose }) => {
+  const [active, setActive] = useState(startIndex);
   const thumbRefs = useRef([]);
-  const touchStartX = useRef(null);
+  const touchX = useRef(null);
   const total = images.length;
+  const go = useCallback((i) => setActive(((i % total) + total) % total), [total]);
 
-  const go = useCallback((idx) => setActive(((idx % total) + total) % total), [total]);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') setActive((a) => (a - 1 + total) % total);
+      if (e.key === 'ArrowRight') setActive((a) => (a + 1) % total);
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose, total]);
 
   useEffect(() => {
     thumbRefs.current[active]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [active]);
 
-  if (!total) {
-    return (
-      <div className="aspect-video sm:aspect-21/9 rounded-3xl bg-[#CBD5E1]/60 flex flex-col items-center justify-center gap-2 text-[#64748B]">
-        <ImageOff size={32} />
-        <span className="text-sm">Cơ sở chưa có hình ảnh</span>
-      </div>
-    );
-  }
-
-  const onKeyDown = (e) => {
-    if (e.key === 'ArrowLeft') go(active - 1);
-    if (e.key === 'ArrowRight') go(active + 1);
-  };
-  const onTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const onTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 40) go(active + (dx < 0 ? 1 : -1));
-    touchStartX.current = null;
-  };
-
   return (
-    <section className="space-y-3" aria-label="Thư viện ảnh">
-      <div
-        className="relative aspect-video sm:aspect-21/9 rounded-3xl overflow-hidden bg-[#CBD5E1] group focus:outline-hidden focus-visible:ring-2 focus-visible:ring-black"
-        tabIndex={0}
-        onKeyDown={onKeyDown}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {images.map((img, idx) => (
-          <img
-            key={img.mediaId ?? idx}
-            src={img.url}
-            alt={`${name} - ảnh ${idx + 1}`}
-            loading={idx === 0 ? 'eager' : 'lazy'}
-            className={`absolute inset-0 w-full h-full object-cover text-transparent transition-opacity duration-500 ${
-              idx === active ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-        ))}
+    <div role="dialog" aria-modal="true" aria-label="Thư viện ảnh" className="fixed inset-0 z-[60] bg-black/95 flex flex-col">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 text-white">
+        <span className="text-sm font-medium truncate pr-4">{name}</span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm tabular-nums text-white/70">
+            {active + 1}/{total} ảnh
+          </span>
+          <button type="button" onClick={onClose} aria-label="Đóng" className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center cursor-pointer">
+            <X size={20} />
+          </button>
+        </div>
+      </div>
 
+      <div
+        className="relative flex-1 min-h-0 flex items-center justify-center px-2 sm:px-16"
+        onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
+        onTouchEnd={(e) => {
+          if (touchX.current === null) return;
+          const dx = e.changedTouches[0].clientX - touchX.current;
+          if (Math.abs(dx) > 40) go(active + (dx < 0 ? 1 : -1));
+          touchX.current = null;
+        }}
+      >
+        <SafeImage key={active} src={images[active]?.url} alt={`${name} - ảnh ${active + 1}`} className="max-w-full max-h-full rounded-lg object-contain" />
         {total > 1 && (
           <>
-            <button
-              type="button"
-              onClick={() => go(active - 1)}
-              aria-label="Ảnh trước"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 text-black shadow-md flex items-center justify-center hover:bg-white cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-            >
-              <ChevronLeft size={22} />
+            <button type="button" onClick={() => go(active - 1)} aria-label="Ảnh trước" className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/90 text-black items-center justify-center hover:bg-white cursor-pointer">
+              <ChevronLeft size={24} />
             </button>
-            <button
-              type="button"
-              onClick={() => go(active + 1)}
-              aria-label="Ảnh tiếp theo"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 text-black shadow-md flex items-center justify-center hover:bg-white cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-            >
-              <ChevronRight size={22} />
+            <button type="button" onClick={() => go(active + 1)} aria-label="Ảnh tiếp theo" className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/90 text-black items-center justify-center hover:bg-white cursor-pointer">
+              <ChevronRight size={24} />
             </button>
           </>
         )}
-
-        <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full bg-black/70 text-white text-xs font-semibold tabular-nums">
-          {active + 1} / {total}
-        </span>
       </div>
 
       {total > 1 && (
-        <div className="flex gap-2.5 overflow-x-auto pb-2 snap-x" role="tablist" aria-label="Chọn ảnh">
+        <div className="flex gap-2 overflow-x-auto px-4 sm:px-6 py-4 justify-start sm:justify-center">
           {images.map((img, idx) => (
             <button
               key={img.mediaId ?? idx}
               ref={(el) => (thumbRefs.current[idx] = el)}
               type="button"
-              role="tab"
-              aria-selected={active === idx}
-              aria-label={`Xem ảnh ${idx + 1}`}
               onClick={() => setActive(idx)}
-              className={`w-24 h-16 sm:w-28 sm:h-20 rounded-xl overflow-hidden border-2 flex-shrink-0 snap-start cursor-pointer transition-all ${
-                active === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'
+              aria-label={`Xem ảnh ${idx + 1}`}
+              className={`w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 cursor-pointer transition-opacity ${
+                idx === active ? 'border-white opacity-100' : 'border-transparent opacity-50 hover:opacity-90'
               }`}
             >
-              <img src={img.url} alt="" loading="lazy" className="w-full h-full object-cover text-transparent" />
+              <SafeImage src={img.url} alt="" loading="lazy" className="w-full h-full" />
             </button>
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 };
 
-/* ------------------------------------------------------------------ */
-/* BADGE KHOẢNG CÁCH THỰC TẾ (FR-06)                                   */
-/* ------------------------------------------------------------------ */
-const DistanceBadge = ({ status, distance, onLocate }) => {
-  if (status === 'loading') {
+/* ================================================================== */
+/* ẢNH: LƯỚI 5 ẢNH (WEB) + CAROUSEL VUỐT (MOBILE)                      */
+/* ================================================================== */
+const DesktopGallery = ({ images, name, onOpen }) => {
+  const [main, ...rest] = images;
+  const tiles = Array.from({ length: 4 }, (_, i) => rest[i]);
+  return (
+    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-1 h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white">
+      <button type="button" onClick={() => onOpen(0)} className="col-span-2 row-span-2 cursor-pointer overflow-hidden group">
+        <SafeImage src={main?.url} alt={name} className="w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
+      </button>
+      {tiles.map((img, i) => {
+        const index = i + 1;
+        const isLast = i === 3;
+        return (
+          <button
+            key={img?.mediaId ?? `empty-${i}`}
+            type="button"
+            onClick={() => (img ? onOpen(index) : isLast && images.length > 1 && onOpen(0))}
+            disabled={!img && !(isLast && images.length > 1)}
+            className="relative overflow-hidden group cursor-pointer disabled:cursor-default"
+          >
+            {img ? (
+              <SafeImage src={img.url} alt={`${name} - ảnh ${index + 1}`} loading="lazy" className="w-full h-full transition-transform duration-500 group-hover:scale-[1.05]" />
+            ) : (
+              <div className="w-full h-full bg-[#F1EEE4]" />
+            )}
+            {isLast && images.length > 1 && (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="px-5 py-2.5 rounded-full bg-black/55 backdrop-blur-sm text-white text-xs font-medium hover:bg-black/70 transition-colors">
+                  Xem thêm ảnh
+                </span>
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const MobileGallery = ({ images, name, onOpen }) => {
+  const [active, setActive] = useState(0);
+  const trackRef = useRef(null);
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    setActive(Math.round(el.scrollLeft / el.clientWidth));
+  };
+  return (
+    <div className="md:hidden relative -mx-4 sm:-mx-6">
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory aspect-[4/3] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {(images.length ? images : [null]).map((img, idx) => (
+          <button key={img?.mediaId ?? idx} type="button" onClick={() => img && onOpen(idx)} className="w-full h-full flex-shrink-0 snap-center">
+            <SafeImage src={img?.url} alt={`${name} - ảnh ${idx + 1}`} loading={idx === 0 ? 'eager' : 'lazy'} className="w-full h-full" />
+          </button>
+        ))}
+      </div>
+      {images.length > 0 && (
+        <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-md bg-black/60 text-white text-xs font-medium tabular-nums">
+          {active + 1}/{images.length} ảnh
+        </span>
+      )}
+    </div>
+  );
+};
+
+/* ================================================================== */
+/* CARD WRAPPER                                                        */
+/* ================================================================== */
+const Card = ({ className = '', children }) => (
+  <section className={`bg-white rounded-3xl border border-[#E7E2D3] shadow-[0_1px_2px_rgba(0,0,0,0.03)] ${className}`}>{children}</section>
+);
+
+const DistanceText = ({ distance, status, onLocate, prefix = 'Cách vị trí của bạn:', approx = false }) => {
+  if (distance !== null && distance !== undefined) {
+    const minutes = estimateDriveMinutes(distance);
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F8F4E8] border border-[#CBD5E1] text-xs font-semibold text-[#64748B]">
-        <Loader2 size={13} className="animate-spin" /> Đang xác định vị trí...
+      <span>
+        {prefix} {approx ? '~' : ''}
+        {formatDistance(distance)}
+        {minutes ? ` (khoảng ${minutes} phút đi xe)` : ''}
       </span>
     );
   }
-  if (status === 'done' && distance !== null && distance !== undefined) {
+  if (status === 'loading') {
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black text-white text-xs font-semibold">
-        <Navigation size={13} className="text-[#FBBF24]" />
-        Cách bạn {formatDistance(distance)} đường đi
+      <span className="inline-flex items-center gap-1.5 text-[#64748B] font-medium">
+        <Loader2 size={13} className="animate-spin" /> Đang xác định vị trí của bạn...
       </span>
     );
   }
   return (
-    <button
-      type="button"
-      onClick={onLocate}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-black text-xs font-semibold text-black hover:bg-[#F8F4E8] cursor-pointer"
-      title={status === 'denied' ? 'Bạn đã chặn quyền vị trí. Hãy cho phép trong cài đặt trình duyệt rồi thử lại.' : undefined}
-    >
-      <LocateFixed size={13} />
-      {status === 'denied' ? 'Chưa có quyền vị trí. Thử lại' : 'Xem khoảng cách từ vị trí của bạn'}
+    <button type="button" onClick={onLocate} className="inline-flex items-center gap-1.5 underline underline-offset-2 cursor-pointer hover:text-[#B45309]">
+      <Navigation size={13} />
+      {status === 'denied'
+        ? 'Bạn chưa cho phép truy cập vị trí. Bấm để thử lại'
+        : status === 'error'
+          ? 'Chưa tính được khoảng cách. Bấm để thử lại'
+          : 'Xem khoảng cách từ vị trí của bạn'}
     </button>
   );
 };
 
-/* ------------------------------------------------------------------ */
-/* CỤM 3 NÚT LIÊN HỆ (FR-08, FR-09)                                    */
-/* ------------------------------------------------------------------ */
-const useContactActions = (lienHe) =>
-  useMemo(() => {
-    const tel = buildTelLink(lienHe?.soDienThoai);
-    const zalo = buildZaloLink(lienHe?.zalo);
-    const facebook = buildFacebookLink(lienHe?.facebook);
-    return [
-      tel && {
-        key: 'tel',
-        href: tel,
-        label: 'Gọi Hotline',
-        sub: formatPhoneDisplay(lienHe.soDienThoai),
-        Icon: Phone,
-        className: 'bg-black text-white hover:opacity-85',
-      },
-      zalo && {
-        key: 'zalo',
-        href: zalo,
-        label: 'Chat Zalo',
-        Icon: MessageCircle,
-        external: true,
-        className: 'bg-[#0068FF] text-white hover:opacity-90',
-      },
-      facebook && {
-        key: 'facebook',
-        href: facebook,
-        label: 'Fanpage',
-        Icon: FacebookIcon,
-        external: true,
-        className: 'bg-white text-[#1877F2] border border-[#CBD5E1] hover:bg-[#F8F4E8]',
-      },
-    ].filter(Boolean);
-  }, [lienHe]);
-
-const ContactLink = ({ action, compact = false }) => {
-  const { href, label, sub, Icon, external, className } = action;
-  return (
-    <a
-      href={href}
-      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      className={`flex items-center justify-center gap-2 rounded-xl font-semibold transition-all ${
-        compact ? 'flex-1 flex-col gap-0.5 py-2 text-[11px]' : 'w-full py-3.5 px-4 text-sm'
-      } ${className}`}
-    >
-      <Icon size={compact ? 20 : 18} />
-      <span>{label}</span>
-      {!compact && sub && <span className="font-normal opacity-75">({sub})</span>}
-    </a>
-  );
-};
-
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* PAGE                                                                */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 export const HotelDetailPage = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [hotel, setHotel] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | notfound | error
-  const [reloadKey, setReloadKey] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   const [userLocation, setUserLocation] = useState(null);
   const [distance, setDistance] = useState(null);
@@ -269,27 +271,35 @@ export const HotelDetailPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [id, reloadKey]);
+  }, [id]);
 
   useEffect(() => {
     if (hotel?.tenCSLT) document.title = `${hotel.tenCSLT} | Hotel Nha Trang`;
   }, [hotel?.tenCSLT]);
 
-  // FR-06: lấy vị trí khách rồi để backend tính khoảng cách đường đi thực tế
+  // Mobile có thanh liên hệ cố định dưới đáy -> đẩy nút Chatbot lên trên (xem index.css)
+  useEffect(() => {
+    if (status !== 'ready') return;
+    document.body.classList.add(BODY_CLASS_BOTTOM_BAR);
+    return () => document.body.classList.remove(BODY_CLASS_BOTTOM_BAR);
+  }, [status]);
+
+  // FR-06: lấy vị trí khách, backend tính khoảng cách đường đi thực tế
   const locateAndMeasure = useCallback(async () => {
     setDistanceStatus('loading');
     try {
       const location = await getCurrentPosition();
       setUserLocation(location);
       const preview = await listingService.getListingPreview(id, location);
-      setDistance(preview?.khoangCach ?? null);
-      setDistanceStatus(preview?.khoangCach !== null && preview?.khoangCach !== undefined ? 'done' : 'error');
+      const km = preview?.khoangCach;
+      setDistance(km ?? null);
+      setDistanceStatus(km !== null && km !== undefined ? 'done' : 'error');
     } catch (err) {
       setDistanceStatus(err?.code === 1 ? 'denied' : 'error'); // 1 = PERMISSION_DENIED
     }
   }, [id]);
 
-  // Tự tính khoảng cách nếu khách đã cấp quyền vị trí từ trước (không bật popup xin quyền).
+  // Tự tính nếu khách đã cấp quyền vị trí trước đó (không bật popup xin quyền khi vừa vào trang)
   useEffect(() => {
     if (status !== 'ready') return;
     let cancelled = false;
@@ -305,226 +315,197 @@ export const HotelDetailPage = () => {
     () => [...(hotel?.hinhAnh || [])].sort((a, b) => (a.thuTu ?? 0) - (b.thuTu ?? 0)),
     [hotel?.hinhAnh]
   );
-  const videos = useMemo(
-    () => [...(hotel?.video || [])].sort((a, b) => (a.thuTu ?? 0) - (b.thuTu ?? 0)),
-    [hotel?.video]
-  );
-  const amenityGroups = useMemo(() => {
-    const list = hotel?.tienIch || [];
-    return [
-      { key: 'TIEN_NGHI', title: 'Tiện ích tại cơ sở', items: list.filter((t) => t.nhom !== 'LAN_CAN') },
-      { key: 'LAN_CAN', title: 'Địa điểm lân cận', items: list.filter((t) => t.nhom === 'LAN_CAN') },
-    ].filter((g) => g.items.length);
-  }, [hotel?.tienIch]);
-  const contactActions = useContactActions(hotel?.lienHe);
+  const facilities = useMemo(() => (hotel?.tienIch || []).filter((t) => t.nhom !== 'LAN_CAN'), [hotel?.tienIch]);
+  const nearby = useMemo(() => (hotel?.tienIch || []).filter((t) => t.nhom === 'LAN_CAN'), [hotel?.tienIch]);
+
+  const tel = buildTelLink(hotel?.lienHe?.soDienThoai);
+  const zalo = buildZaloLink(hotel?.lienHe?.zalo);
+  const facebook = buildFacebookLink(hotel?.lienHe?.facebook);
 
   if (status === 'loading') return <LoadingSpinner text="Đang tải thông tin cơ sở lưu trú..." />;
-  if (status === 'notfound') {
+  if (status !== 'ready' || !hotel) {
     return (
-      <div className="px-4 py-16">
-        <EmptyState
-          title="Không tìm thấy cơ sở lưu trú"
-          message="Cơ sở này không tồn tại, chưa được duyệt hoặc đã tạm ẩn. Bạn hãy thử tìm cơ sở khác nhé."
-          actionText="Về trang chủ"
-          onAction={() => navigate(ROUTES.HOME)}
-        />
-      </div>
-    );
-  }
-  if (status === 'error' || !hotel) {
-    return (
-      <div className="px-4 py-16">
-        <ErrorState
-          message="Không thể tải thông tin cơ sở lưu trú. Vui lòng kiểm tra kết nối và thử lại."
-          onAction={() => {
-            setStatus('loading');
-            setReloadKey((k) => k + 1);
-          }}
-        />
+      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-6 text-center">
+        <p className="font-bold text-sm sm:text-base text-black">
+          {status === 'notfound' ? 'Không tìm thấy cơ sở lưu trú' : 'Lỗi không thể tải dữ liệu'}
+        </p>
       </div>
     );
   }
 
   const hasCoords = hotel.latitude !== null && hotel.latitude !== undefined && hotel.longitude !== null && hotel.longitude !== undefined;
+  const hostName = hotel.chuCoSo?.hoTen;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 lg:pb-12 space-y-8">
-      {/* BREADCRUMB + HEADER */}
-      <div className="space-y-3">
-        <Link
-          to={ROUTES.HOME}
-          className="inline-flex items-center gap-1.5 text-sm text-[#64748B] hover:text-black"
-        >
-          <ArrowLeft size={16} /> Quay lại
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          {hotel.tenLoai && (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-black text-white">{hotel.tenLoai}</span>
-          )}
-          {hotel.tenPhuong && (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-white border border-[#CBD5E1] text-[#64748B]">
-              {hotel.tenPhuong}
-            </span>
-          )}
-        </div>
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-black leading-tight">{hotel.tenCSLT}</h1>
-        <div className="flex items-start gap-2 text-sm text-[#64748B]">
-          <MapPin size={16} className="text-black flex-shrink-0 mt-0.5" />
-          <span>{hotel.diaChiChiTiet}</span>
-        </div>
-      </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 md:pt-12 pb-32 lg:pb-16">
+      <MobileGallery images={images} name={hotel.tenCSLT} onOpen={setLightboxIndex} />
+      <DesktopGallery images={images} name={hotel.tenCSLT} onOpen={setLightboxIndex} />
 
-      <ImageGallery images={images} name={hotel.tenCSLT} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* LEFT COLUMN */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* GIÁ + ĐẠI DIỆN (hiện trên mobile, desktop nằm trong cột phải) */}
-          <div className="lg:hidden bg-white p-6 rounded-3xl border border-[#CBD5E1] space-y-4">
-            <PriceBlock hotel={hotel} />
-            <HostBlock hostName={hotel.chuCoSo?.hoTen} />
-          </div>
-
-          {hotel.moTa && (
-            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-[#CBD5E1] space-y-3">
-              <h2 className="text-xl font-bold text-black">Giới thiệu</h2>
-              <p className="text-sm text-[#334155] leading-relaxed whitespace-pre-line">{hotel.moTa}</p>
-            </section>
-          )}
-
-          {/* GRID TIỆN ÍCH KÈM ICON */}
-          {amenityGroups.length > 0 && (
-            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-[#CBD5E1] space-y-6">
-              {amenityGroups.map((group) => (
-                <div key={group.key} className="space-y-4">
-                  <h2 className="text-xl font-bold text-black">{group.title}</h2>
-                  <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {group.items.map((item) => (
-                      <li
-                        key={item.maTienIch}
-                        className="flex items-center gap-3 p-3 rounded-2xl bg-[#F8F4E8] border border-[#CBD5E1]/60 text-sm text-black"
-                      >
-                        <span className="w-9 h-9 rounded-xl bg-white text-[#B45309] flex items-center justify-center flex-shrink-0 border border-[#CBD5E1]/60">
-                          <AmenityIcon icon={item.icon} name={item.tenTienIch} size={18} />
-                        </span>
-                        <span className="leading-snug">{item.tenTienIch}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </section>
-          )}
-
-          {videos.length > 0 && (
-            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-[#CBD5E1] space-y-4">
-              <h2 className="text-xl font-bold text-black">Video</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {videos.map((v) => (
-                  <video key={v.mediaId} src={v.url} controls preload="metadata" className="w-full rounded-2xl bg-black aspect-video" />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* BẢN ĐỒ + BADGE KHOẢNG CÁCH (FR-05, FR-06) */}
-          <section className="bg-white p-6 sm:p-8 rounded-3xl border border-[#CBD5E1] space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-bold text-black">Vị trí trên bản đồ</h2>
-              <DistanceBadge status={distance !== null && distanceStatus === 'idle' ? 'done' : distanceStatus} distance={distance} onLocate={locateAndMeasure} />
+      <div className="mt-4 md:mt-11 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-4 md:gap-6 lg:gap-16 items-start">
+        {/* ================= CỘT TRÁI ================= */}
+        <div className="space-y-4 md:space-y-6">
+          {/* THẺ THÔNG TIN CHÍNH */}
+          <Card className="p-4 sm:p-6">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DCFCE7] text-[#15803D] text-[11px] font-semibold">
+                Đã duyệt <Check size={12} strokeWidth={3} />
+              </span>
+              {hotel.ngayCapNhatGia && (
+                <span className="text-[11px] text-[#64748B]">• Cập nhật giá: {formatDate(hotel.ngayCapNhatGia)}</span>
+              )}
             </div>
-            {distanceStatus === 'error' && (
-              <p className="text-xs text-[#DC2626]">Không tính được khoảng cách lúc này. Bạn thử lại sau nhé.</p>
-            )}
 
-            {hasCoords ? (
+            <h1 className="mt-3 text-xl sm:text-2xl font-bold text-black leading-tight">{hotel.tenCSLT}</h1>
+            <p className="mt-1 flex items-start gap-1 text-xs text-[#64748B]">
+              <MapPin size={13} className="text-[#DC2626] fill-[#DC2626]/15 flex-shrink-0 mt-px" />
+              <span>{hotel.diaChiChiTiet}</span>
+            </p>
+
+            <p className="mt-3 text-[11px] sm:text-xs font-semibold text-black leading-relaxed">
+              <DistanceText distance={distance} status={distanceStatus} onLocate={locateAndMeasure} />
+              {nearby.length > 0 && (
+                <span className="font-semibold">
+                  {' • '}
+                  {nearby
+                    .slice(0, 2)
+                    .map((n) => n.tenTienIch)
+                    .join(' • ')}
+                </span>
+              )}
+            </p>
+
+            {hostName && (
               <>
-                <div className="relative h-72 sm:h-80 rounded-2xl overflow-hidden border border-[#CBD5E1] bg-[#CBD5E1]">
-                  <iframe
-                    title={`Bản đồ ${hotel.tenCSLT}`}
-                    src={googleMapsEmbedUrl(hotel.latitude, hotel.longitude)}
-                    className="w-full h-full border-0"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    allowFullScreen
-                  />
+                <hr className="my-4 border-t border-[#94A3B8]/70" />
+                <div className="flex items-center gap-4 pl-1">
+                  <div className="w-9 h-9 rounded-full bg-[#60A5FA] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 ring-2 ring-white shadow">
+                    {hostName.trim().split(/\s+/).pop()?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-black">{hostName}</p>
+                    <p className="text-[11px] text-[#64748B]">Tài khoản đã được xác minh</p>
+                  </div>
                 </div>
+              </>
+            )}
+          </Card>
+
+          {/* TIỆN ÍCH (FR-05) */}
+          {facilities.length > 0 && (
+            <Card className="p-4 sm:p-6">
+              <h2 className="text-sm sm:text-base font-semibold text-black mb-3">Tiện ích</h2>
+              <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {facilities.map((item) => (
+                  <li key={item.maTienIch} className="flex items-center gap-2.5 px-3 sm:px-4 py-2 rounded-lg bg-[#F5F4F0] text-xs text-black">
+                    <AmenityIcon icon={item.icon} name={item.tenTienIch} size={15} className="text-[#64748B] flex-shrink-0" />
+                    <span className="truncate">{item.tenTienIch}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {/* VỊ TRÍ & KHOẢNG CÁCH (FR-05, FR-06) */}
+          <Card className="p-4 sm:p-6">
+            <h2 className="text-xs sm:text-sm text-black mb-3">Vị trí &amp; khoảng cách</h2>
+            {hasCoords ? (
+              <div className="relative h-24 sm:h-32 md:h-[126px] rounded-xl overflow-hidden border border-[#CBD5E1] bg-[#E5E7EB]">
+                <iframe
+                  title={`Bản đồ ${hotel.tenCSLT}`}
+                  src={googleMapsEmbedUrl(hotel.latitude, hotel.longitude)}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
                 <a
                   href={googleMapsDirectionsUrl(hotel.latitude, hotel.longitude, userLocation)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-black hover:text-[#B45309]"
+                  className="absolute right-2 bottom-2 px-3 py-1.5 rounded-full bg-white text-[11px] font-semibold text-black shadow hover:bg-[#F8F4E8]"
                 >
-                  <Navigation size={16} /> Chỉ đường bằng Google Maps <ExternalLink size={14} />
+                  Chỉ đường
                 </a>
-              </>
+              </div>
             ) : (
-              <div className="h-48 rounded-2xl bg-[#F8F4E8] flex items-center justify-center text-sm text-[#64748B]">
-                Cơ sở chưa cập nhật vị trí trên bản đồ
+              <div className="h-24 sm:h-32 rounded-xl bg-[#E5E7EB] border border-[#CBD5E1] flex flex-col items-center justify-center text-xs font-semibold text-black">
+                <MapPin size={20} className="text-[#DC2626] fill-[#DC2626] mb-1" />
+                Chưa cập nhật vị trí
               </div>
             )}
-          </section>
+            <p className="mt-3 flex items-start gap-1 text-[11px] sm:text-xs font-semibold text-black">
+              <MapPin size={13} className="text-[#DC2626] fill-[#DC2626]/15 flex-shrink-0 mt-px" />
+              <DistanceText distance={distance} status={distanceStatus} onLocate={locateAndMeasure} approx />
+            </p>
+          </Card>
         </div>
 
-        {/* RIGHT COLUMN (DESKTOP): GIÁ, ĐẠI DIỆN, CỤM NÚT LIÊN HỆ CỐ ĐỊNH */}
-        <aside className="hidden lg:block lg:col-span-1">
-          <div className="bg-white p-7 rounded-3xl border border-[#CBD5E1] shadow-lg sticky top-28 space-y-5">
-            <PriceBlock hotel={hotel} />
-            <HostBlock hostName={hotel.chuCoSo?.hoTen} />
-            {contactActions.length > 0 ? (
-              <div className="space-y-3">
-                {contactActions.map((a) => (
-                  <ContactLink key={a.key} action={a} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[#64748B]">Cơ sở chưa cập nhật thông tin liên hệ.</p>
-            )}
-            <p className="text-[11px] text-[#64748B] text-center leading-relaxed">
-              Liên hệ trực tiếp với chủ cơ sở, không qua trung gian, không thu phí hoa hồng.
+        {/* ================= CỘT PHẢI (WEB): GIÁ + LIÊN HỆ ================= */}
+        <aside className="hidden lg:block sticky top-28">
+          <Card className="px-5 pt-6 pb-2">
+            <p className="text-[11px] text-[#64748B]">Giá tham khảo chỉ từ</p>
+            <p className="mt-1 text-xl font-bold text-black">
+              {formatPrice(hotel.gia)}
+              <span className="text-[11px] font-normal text-[#64748B]">/đêm</span>
             </p>
-          </div>
+            <p className="mt-2 flex items-center gap-1.5 text-[10px] text-[#15803D]">
+              <span className="w-1 h-1 rounded-full bg-[#22C55E]" /> Giá niêm yết trực tiếp từ Host
+            </p>
+
+            <div className="mt-4 space-y-2">
+              {tel && (
+                <a href={tel} className="flex items-center justify-center gap-2 h-[30px] rounded-full border border-[#64748B] bg-[#EEF0F6] text-[10px] font-semibold text-black hover:bg-[#E2E5EE] transition-colors">
+                  Liên hệ: {formatPhoneDots(hotel.lienHe.soDienThoai)}
+                </a>
+              )}
+              {facebook && (
+                <a href={facebook} target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-[#F8F4E8] text-[10px] font-medium text-black hover:bg-[#F1EBD8] transition-colors">
+                  <FacebookLogo size={24} className="absolute left-10" />
+                  Facebook
+                </a>
+              )}
+              {zalo && (
+                <a href={zalo} target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-white text-[10px] font-medium text-black hover:bg-[#F8F4E8] transition-colors">
+                  <ZaloLogo size={24} className="absolute left-10" />
+                  Zalo
+                </a>
+              )}
+              {!tel && !facebook && !zalo && (
+                <p className="text-[11px] text-[#64748B] text-center py-2">Cơ sở chưa cập nhật thông tin liên hệ</p>
+              )}
+            </div>
+            <p className="mt-2 mb-1 text-center text-[9px] text-[#64748B]">Liên hệ trực tiếp, không qua trung gian</p>
+          </Card>
         </aside>
       </div>
 
-      {/* MOBILE: THANH 3 NÚT CỐ ĐỊNH ĐÁY MÀN HÌNH (chừa chỗ bên phải cho nút Chatbot) */}
-      {contactActions.length > 0 && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-[#CBD5E1] pl-3 pr-[84px] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-          {contactActions.map((a) => (
-            <ContactLink key={a.key} action={a} compact />
-          ))}
+      {/* ================= THANH CỐ ĐỊNH ĐÁY (MOBILE) ================= */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white border-t border-[#E7E2D3] rounded-t-2xl shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-[#94A3B8]">Giá chỉ từ</p>
+          <p className="text-base font-bold text-black truncate">
+            {hotel.gia === null || hotel.gia === undefined ? 'Liên hệ' : `${Number(hotel.gia).toLocaleString('vi-VN')}/đêm`}
+          </p>
         </div>
+        {tel && (
+          <a href={tel} aria-label="Gọi Hotline" className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
+            <Phone size={16} className="fill-white" />
+          </a>
+        )}
+        {facebook && (
+          <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Fanpage Facebook" className="w-10 h-10 rounded-full border border-[#CBD5E1] bg-white flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
+            <FacebookLogo size={22} />
+          </a>
+        )}
+        {zalo && (
+          <a href={zalo} target="_blank" rel="noopener noreferrer" className="h-10 px-5 rounded-full border border-[#64748B] bg-[#F8F4E8] flex items-center gap-2 text-sm font-medium text-black flex-shrink-0 active:scale-95 transition-transform">
+            <ZaloLogo size={22} /> Zalo
+          </a>
+        )}
+      </div>
+
+      {lightboxIndex !== null && (
+        <Lightbox images={images} startIndex={lightboxIndex} name={hotel.tenCSLT} onClose={closeLightbox} />
       )}
     </div>
   );
 };
-
-const PriceBlock = ({ hotel }) => (
-  <div>
-    <span className="text-xs text-[#64748B] block mb-1">Giá tham khảo từ</span>
-    <div className="text-2xl sm:text-3xl font-black text-black">
-      {formatCurrency(hotel.gia)}
-    </div>
-    {hotel.ngayCapNhatGia && (
-      <div className="flex items-center gap-1.5 text-xs text-[#64748B] mt-2">
-        <Calendar size={14} />
-        <span>Cập nhật giá ngày {formatDate(hotel.ngayCapNhatGia)}</span>
-      </div>
-    )}
-  </div>
-);
-
-const HostBlock = ({ hostName }) =>
-  hostName ? (
-    <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#F8F4E8] border border-[#CBD5E1]">
-      <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold">
-        {hostName.trim().split(/\s+/).pop()?.[0]?.toUpperCase()}
-      </div>
-      <div>
-        <div className="flex items-center gap-1.5 text-xs text-[#64748B]">
-          <Building2 size={13} /> Đại diện cơ sở
-        </div>
-        <p className="font-bold text-sm text-black">{hostName}</p>
-      </div>
-    </div>
-  ) : null;

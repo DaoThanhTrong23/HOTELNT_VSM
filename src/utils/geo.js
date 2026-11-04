@@ -49,3 +49,9 @@ export const googleMapsDirectionsUrl = (lat, lng, origin) =>
   `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}` +
   (origin ? `&origin=${origin.latitude},${origin.longitude}` : '') +
   '&travelmode=driving';
+
+// Ước tính thời gian lái xe trong nội thành Nha Trang (~25 km/h) khi backend chỉ trả về khoangCach.
+export const estimateDriveMinutes = (km) => {
+  if (km === null || km === undefined || Number.isNaN(Number(km))) return null;
+  return Math.max(1, Math.round((Number(km) / 25) * 60));
+};
