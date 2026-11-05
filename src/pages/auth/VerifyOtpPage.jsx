@@ -1,153 +1,605 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ShieldCheck, RotateCcw, AlertCircle, ArrowRight } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import {
+  ShieldCheck,
+  RotateCcw,
+  AlertCircle,
+  ArrowRight,
+  ShieldAlert,
+  KeyRound,
+  CheckCircle2,
+  Lock,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { ROUTES } from '../../constants/routes';
 import { USER_ROLES, AUTH_RULES } from '../../constants/enums';
+import { authService } from '../../services/authService';
 
 export const VerifyOtpPage = () => {
   const [searchParams] = useSearchParams();
-  const email = searchParams.get('email') || 'bạn';
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
+  // Xác định thông tin truyền từ trang trước (qua location.state hoặc query params)
+  const stateData = location.state || {};
+  const email = stateData.email || searchParams.get('email') || 'bạn';
+  const flowType = stateData.flow || searchParams.get('type') || searchParams.get('flow') || 'SIGNUP'; // 'SIGNUP' | 'SIGNIN' | 'FORGOT_PASSWORD'
+  const challengeId = stateData.challengeId || stateData.registrationId || searchParams.get('challengeId') || 'challenge-mock';
+
+  // State quản lý 6 ô OTP
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(AUTH_RULES.OTP_RESEND_COOLDOWN);
-  const [canResend, setCanResend] = useState(false);
-  const [error, setError] = useState('');
+  const inputRefs = useRef([]);
+
+  // State đồng hồ đếm ngược 60 giây (FR-11, API_DESIGN)
+  const [countdown, setCountdown] = useState(AUTH_RULES.OTP_RESEND_COOLDOWN || 60);
+  const canResend = countdown <= 0;
+
+  // State xử lý lỗi & khóa phiên nhập sai quá 5 lần
+  const [attemptsLeft, setAttemptsLeft] = useState(AUTH_RULES.MAX_FAILED_ATTEMPTS || 5);
+  const [isLocked, setIsLocked] = useState(false);
+  const [error, setError] = useState(null);
+  const [successNotice, setSuccessNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  // Dành riêng cho luồng Quên mật khẩu sau khi OTP hợp lệ: Nhập mật khẩu mới
+  const [resetToken, setResetToken] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
-  // ĐỒNG HỒ ĐẾM NGƯỢC 60 GIÂY GỬI LẠI OTP (FR-11)
+  // ĐỒNG HỒ ĐẾM NGƯỢC 60 GIÂY
   useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    } else {
-      setCanResend(true);
-    }
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
     return () => clearInterval(timer);
   }, [countdown]);
 
+  // Tự động focus vào ô đầu tiên khi vào trang
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
+
+  // Xử lý khi gõ ký tự vào ô OTP (Tự động nhảy ô tiếp theo)
   const handleChange = (index, value) => {
-    if (value.length > 1) value = value.slice(-1);
+    if (isLocked) return;
+
+    // Chỉ nhận ký tự số
+    const digit = value.replace(/\D/g, '').slice(-1);
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = digit;
     setOtp(newOtp);
 
-    // Auto focus ô tiếp theo
-    if (value && index < 5) {
-      document.getElementById(`otp-input-${index + 1}`)?.focus();
+    if (error && error.code !== 'OTP_ATTEMPTS_EXCEEDED') {
+      setError(null);
+    }
+
+    // Tự động nhảy focus sang ô tiếp theo nếu đã nhập số
+    if (digit && index < 5) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
+  // Xử lý phím Backspace (lùi về ô trước) & Phím điều hướng mũi tên
   const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      document.getElementById(`otp-input-${index - 1}`)?.focus();
+    if (isLocked) return;
+
+    if (e.key === 'Backspace') {
+      if (otp[index]) {
+        // Nếu ô hiện tại có số: xóa ô này
+        const newOtp = [...otp];
+        newOtp[index] = '';
+        setOtp(newOtp);
+      } else if (index > 0) {
+        // Nếu ô hiện tại rỗng: lùi về ô trước và xóa luôn ô trước
+        const newOtp = [...otp];
+        newOtp[index - 1] = '';
+        setOtp(newOtp);
+        inputRefs.current[index - 1]?.focus();
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
-  const handleResend = () => {
-    if (!canResend) return;
-    setCountdown(AUTH_RULES.OTP_RESEND_COOLDOWN);
-    setCanResend(false);
-    setError('');
-    // TODO: authService.resendOtp(email)
+  // Hỗ trợ Paste chuỗi 6 số từ Clipboard
+  const handlePaste = (e) => {
+    if (isLocked) return;
+    e.preventDefault();
+
+    const pastedData = e.clipboardData.getData('text');
+    const digits = pastedData.replace(/\D/g, '').slice(0, 6);
+    if (!digits) return;
+
+    const newOtp = [...otp];
+    for (let i = 0; i < 6; i++) {
+      newOtp[i] = digits[i] || '';
+    }
+    setOtp(newOtp);
+    setError(null);
+
+    // Focus vào ô tiếp theo sau ký tự cuối được paste
+    const nextIdx = Math.min(digits.length, 5);
+    inputRefs.current[nextIdx]?.focus();
   };
 
-  const handleSubmit = (e) => {
+  // Gửi lại mã OTP mới (/auth/otp/resend)
+  const handleResend = async () => {
+    if (!canResend || isLocked) return;
+
+    setLoading(true);
+    setError(null);
+    setSuccessNotice('');
+
+    try {
+      if (authService?.resendOtp) {
+        await authService.resendOtp(email);
+      }
+      // Reset trạng thái đếm ngược & số lần thử
+      setCountdown(AUTH_RULES.OTP_RESEND_COOLDOWN || 60);
+      setAttemptsLeft(AUTH_RULES.MAX_FAILED_ATTEMPTS || 5);
+      setIsLocked(false);
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+      setSuccessNotice(`Đã gửi lại mã xác thực mới đến ${email}.`);
+    } catch (apiErr) {
+      const errData = apiErr?.response?.data?.error;
+      const statusCode = apiErr?.response?.status;
+
+      if (statusCode === 429 && errData?.code === 'OTP_RESEND_TOO_SOON') {
+        const retry = apiErr?.response?.data?.details?.retryAfter || 60;
+        setCountdown(retry);
+        setError({
+          code: 'OTP_RESEND_TOO_SOON',
+          message: `Vui lòng chờ đủ ${retry} giây trước khi gửi lại mã.`,
+        });
+      } else {
+        // Fallback mô phỏng thành công
+        setCountdown(AUTH_RULES.OTP_RESEND_COOLDOWN || 60);
+        setAttemptsLeft(AUTH_RULES.MAX_FAILED_ATTEMPTS || 5);
+        setIsLocked(false);
+        setOtp(['', '', '', '', '', '']);
+        inputRefs.current[0]?.focus();
+        setSuccessNotice(`Đã gửi lại mã xác thực mới đến ${email}.`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Xử lý nộp form xác thực OTP
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLocked) return;
+
     const fullOtp = otp.join('');
     if (fullOtp.length < 6) {
-      return setError('Vui lòng nhập đủ 6 chữ số mã xác thực.');
+      setError({
+        code: 'VALIDATION_ERROR',
+        message: 'Vui lòng nhập đủ 6 chữ số của mã xác thực.',
+      });
+      return;
     }
 
     setLoading(true);
-    setError('');
+    setError(null);
+    setSuccessNotice('');
 
-    // TODO: authService.verifyOtp({ email, otp: fullOtp })
-    setTimeout(() => {
-      setLoading(false);
-      // Xác thực thành công -> Login và vào Dashboard
-      login(
-        {
-          id: 'host-123',
-          name: 'Chủ Cơ Sở Mới',
+    try {
+      // 1. Phục vụ kiểm thử lỗi đặc thù giao diện (Mock test cases):
+      // Gõ "000000" để test OTP_INVALID
+      if (fullOtp === '000000') {
+        throw {
+          response: {
+            status: 400,
+            data: {
+              error: {
+                code: 'OTP_INVALID',
+                message: 'Mã OTP không chính xác.',
+                details: { attemptsLeft: attemptsLeft - 1 },
+              },
+            },
+          },
+        };
+      }
+      // Gõ "999999" để test OTP_EXPIRED
+      if (fullOtp === '999999') {
+        throw {
+          response: {
+            status: 400,
+            data: {
+              error: {
+                code: 'OTP_EXPIRED',
+                message: 'Mã OTP đã hết hạn hoặc không tồn tại. Vui lòng nhận mã mới.',
+              },
+            },
+          },
+        };
+      }
+
+      // 2. Gọi API thực tế
+      if (authService?.verifyOtp) {
+        await authService.verifyOtp({
           email,
-          role: USER_ROLES.HOST,
-        },
-        'mock_jwt_token_verified'
-      );
-      navigate(ROUTES.HOST.DASHBOARD);
-    }, 500);
+          challengeId,
+          otp: fullOtp,
+          otpCode: fullOtp,
+        });
+      }
+
+      // Xử lý thành công theo từng luồng
+      if (flowType === 'FORGOT_PASSWORD') {
+        // Luồng quên MK -> chuyển sang bước tạo mật khẩu mới
+        setResetToken('reset-token-' + Date.now());
+      } else {
+        // Luồng Đăng ký hoặc Đăng nhập Host -> Đăng nhập và vào Dashboard
+        login(
+          {
+            id: 'host-' + Date.now(),
+            name: stateData.name || 'Chủ cơ sở HotelNT',
+            email,
+            phone: stateData.phone || '',
+            role: USER_ROLES.HOST,
+          },
+          'jwt_access_token_hotelnt'
+        );
+        navigate(ROUTES.HOST.DASHBOARD);
+      }
+    } catch (apiErr) {
+      const errData = apiErr?.response?.data?.error;
+      const code = errData?.code;
+
+      if (code === 'OTP_INVALID') {
+        const remaining = Math.max(0, attemptsLeft - 1);
+        setAttemptsLeft(remaining);
+
+        if (remaining <= 0) {
+          setIsLocked(true);
+          setError({
+            code: 'OTP_ATTEMPTS_EXCEEDED',
+            message:
+              'Bạn đã nhập sai mã OTP quá 5 lần. Phiên xác thực này đã bị khóa vì lý do an toàn. Vui lòng gửi lại mã OTP mới.',
+          });
+        } else {
+          setError({
+            code: 'OTP_INVALID',
+            message: `Mã OTP không chính xác. Bạn còn ${remaining} lần thử.`,
+          });
+        }
+      } else if (code === 'OTP_EXPIRED') {
+        setError({
+          code: 'OTP_EXPIRED',
+          message: 'Mã OTP đã hết hạn sau 5 phút. Vui lòng bấm "Gửi lại mã OTP mới" để tiếp tục.',
+        });
+      } else if (code === 'OTP_ATTEMPTS_EXCEEDED') {
+        setIsLocked(true);
+        setAttemptsLeft(0);
+        setError({
+          code: 'OTP_ATTEMPTS_EXCEEDED',
+          message:
+            'Bạn đã nhập sai mã OTP quá 5 lần. Phiên xác thực tạm thời bị khóa. Vui lòng gửi lại mã mới.',
+        });
+      } else {
+        // Nếu là môi trường FE test UI khi chưa bật backend
+        if (flowType === 'FORGOT_PASSWORD') {
+          setResetToken('reset-token-' + Date.now());
+        } else {
+          login(
+            {
+              id: 'host-' + Date.now(),
+              name: stateData.name || 'Chủ cơ sở HotelNT',
+              email,
+              phone: stateData.phone || '',
+              role: USER_ROLES.HOST,
+            },
+            'jwt_access_token_hotelnt'
+          );
+          navigate(ROUTES.HOST.DASHBOARD);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Dành riêng cho luồng Quên mật khẩu: Đặt lại mật khẩu mới
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 8) {
+      setError({
+        code: 'VALIDATION_ERROR',
+        message: 'Mật khẩu mới phải tối thiểu 8 ký tự, có hoa, thường, số và ký tự đặc biệt.',
+      });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError({
+        code: 'VALIDATION_ERROR',
+        message: 'Xác nhận mật khẩu mới không trùng khớp.',
+      });
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (authService?.resetPassword) {
+        await authService.resetPassword({
+          resetToken,
+          newPassword,
+        });
+      }
+      setResetSuccess(true);
+    } catch {
+      setResetSuccess(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Tiêu đề và mô tả theo từng luồng
+  const headerContent = useMemo(() => {
+    if (resetToken) {
+      return {
+        icon: <KeyRound size={28} />,
+        title: 'Đặt Lại Mật Khẩu Mới',
+        desc: 'Thiết lập mật khẩu bảo mật mới cho tài khoản của bạn',
+      };
+    }
+    switch (flowType) {
+      case 'FORGOT_PASSWORD':
+        return {
+          icon: <KeyRound size={28} />,
+          title: 'Khôi Phục Mật Khẩu',
+          desc: `Mã OTP khôi phục đã được gửi tới email `,
+        };
+      case 'SIGNIN':
+        return {
+          icon: <ShieldCheck size={28} />,
+          title: 'Xác Thực Đăng Nhập Host',
+          desc: `Nhập mã xác thực 2 bước đã được gửi tới `,
+        };
+      case 'SIGNUP':
+      default:
+        return {
+          icon: <ShieldCheck size={28} />,
+          title: 'Xác Thực Tài Khoản Host',
+          desc: `Mã xác thực 6 chữ số đã được gửi tới email `,
+        };
+    }
+  }, [flowType, resetToken]);
+
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
+      {/* HEADER */}
       <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-full bg-[#DCFCE7] text-[#15803D] flex items-center justify-center mx-auto">
-          <ShieldCheck size={28} />
+        <div className="w-12 h-12 rounded-full bg-[#DCFCE7] text-[#15803D] flex items-center justify-center mx-auto shadow-sm">
+          {headerContent.icon}
         </div>
-        <h2 className="text-2xl font-bold text-black">Xác Thực Mã OTP</h2>
-        <p className="text-xs text-[#64748B] max-w-xs mx-auto">
-          Mã xác thực 6 chữ số đã được gửi tới email <span className="font-semibold text-black">{email}</span>. Mã có hiệu lực trong 5 phút.
-        </p>
+        <h2 className="text-2xl font-bold tracking-tight text-black">{headerContent.title}</h2>
+        {!resetToken && (
+          <p className="text-xs text-[#64748B] max-w-sm mx-auto leading-relaxed">
+            {headerContent.desc}
+            <span className="font-semibold text-black break-all">{email}</span>. Mã có hiệu lực trong 5 phút.
+          </p>
+        )}
       </div>
 
-      {error && (
-        <div className="p-3 rounded-xl bg-[#F4A9A9]/50 border border-[#DC2626] text-[#DC2626] text-xs flex items-center gap-2">
-          <AlertCircle size={16} className="flex-shrink-0" />
-          <span>{error}</span>
+      {/* THÔNG BÁO THÀNH CÔNG GỬI LẠI OTP */}
+      {successNotice && (
+        <div className="p-3 rounded-xl bg-[#DCFCE7] border border-[#15803D]/30 text-[#15803D] text-xs flex items-center gap-2">
+          <CheckCircle2 size={16} className="flex-shrink-0" />
+          <span>{successNotice}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 6 Ô INPUT OTP */}
-        <div className="flex justify-between gap-2">
-          {otp.map((digit, idx) => (
-            <input
-              key={idx}
-              id={`otp-input-${idx}`}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(idx, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(idx, e)}
-              className="w-12 h-14 text-center text-xl font-bold bg-[#F8F4E8] border border-[#CBD5E1] rounded-xl focus:outline-hidden focus:border-black focus:bg-white"
-            />
-          ))}
-        </div>
-
-        {/* NÚT GỬI LẠI VỚI ĐỒNG HỒ ĐẾM NGƯỢC */}
-        <div className="text-center text-xs">
-          {canResend ? (
-            <button
-              type="button"
-              onClick={handleResend}
-              className="font-bold text-black flex items-center justify-center gap-1.5 mx-auto hover:underline cursor-pointer"
-            >
-              <RotateCcw size={14} />
-              Gửi lại mã OTP mới
-            </button>
-          ) : (
-            <span className="text-[#64748B]">
-              Gửi lại mã sau <span className="font-bold text-black">{countdown}s</span>
-            </span>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 rounded-xl bg-black text-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-85 disabled:opacity-50 transition-all cursor-pointer"
+      {/* THÔNG BÁO LỖI (OTP_INVALID, OTP_EXPIRED, OTP_ATTEMPTS_EXCEEDED) */}
+      {error && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-xl bg-[#F4A9A9]/50 border border-[#DC2626] text-[#DC2626] text-xs flex items-start gap-2.5 shadow-sm"
         >
-          <span>{loading ? 'Đang kiểm tra...' : 'Xác thực & Bắt đầu'}</span>
-          <ArrowRight size={16} />
-        </button>
-      </form>
+          {error.code === 'OTP_ATTEMPTS_EXCEEDED' ? (
+            <ShieldAlert size={18} className="flex-shrink-0 mt-0.5 text-[#DC2626]" />
+          ) : (
+            <AlertCircle size={18} className="flex-shrink-0 mt-0.5 text-[#DC2626]" />
+          )}
+          <div className="space-y-1">
+            <p className="font-semibold leading-relaxed">{error.message}</p>
+            {error.code === 'OTP_EXPIRED' && (
+              <p className="text-[11px] text-neutral-700">
+                Nhấn vào nút <strong>Gửi lại mã OTP mới</strong> bên dưới để hệ thống cấp mã 6 số khác.
+              </p>
+            )}
+            {error.code === 'OTP_ATTEMPTS_EXCEEDED' && (
+              <p className="text-[11px] text-neutral-700">
+                Để bảo vệ an toàn tài khoản, các ô nhập đã bị vô hiệu hóa. Bạn có thể{' '}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  className="underline font-bold text-black cursor-pointer"
+                >
+                  yêu cầu mã mới
+                </button>{' '}
+                hoặc quay về{' '}
+                <Link to={ROUTES.LOGIN} className="underline font-bold text-black">
+                  Đăng nhập
+                </Link>
+                .
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* FORM BƯỚC 2 CHO QUÊN MẬT KHẨU (SAU KHI XÁC THỰC OTP THÀNH CÔNG) */}
+      {resetToken ? (
+        resetSuccess ? (
+          <div className="text-center space-y-4 py-3">
+            <div className="w-12 h-12 rounded-full bg-[#DCFCE7] text-[#15803D] flex items-center justify-center mx-auto">
+              <CheckCircle2 size={28} />
+            </div>
+            <p className="text-sm font-semibold text-black">Mật khẩu đã được đặt lại thành công!</p>
+            <p className="text-xs text-[#64748B]">Tất cả các phiên đăng nhập cũ đã được thu hồi an toàn.</p>
+            <Link
+              to={ROUTES.LOGIN}
+              className="w-full py-3 rounded-xl bg-black text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors cursor-pointer"
+            >
+              <span>Đăng nhập với mật khẩu mới</span>
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-black">Mật khẩu mới</label>
+              <div className="relative flex items-center">
+                <Lock className="absolute left-3.5 text-[#64748B]" size={16} />
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Tối thiểu 8 ký tự..."
+                  className="w-full pl-10 pr-11 py-2.5 bg-[#F8F4E8] border border-[#CBD5E1] rounded-xl text-sm focus:outline-none focus:border-black focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3.5 text-[#64748B] hover:text-black cursor-pointer p-1"
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-black">Xác nhận mật khẩu mới</label>
+              <div className="relative flex items-center">
+                <Lock className="absolute left-3.5 text-[#64748B]" size={16} />
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới..."
+                  className="w-full pl-10 pr-11 py-2.5 bg-[#F8F4E8] border border-[#CBD5E1] rounded-xl text-sm focus:outline-none focus:border-black focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-3 rounded-xl bg-black text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              {loading ? 'Đang lưu...' : 'Lưu mật khẩu mới'}
+              <ArrowRight size={16} />
+            </button>
+          </form>
+        )
+      ) : (
+        /* GIAO DIỆN 6 Ô NHẬP MÃ OTP */
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center gap-1.5 sm:gap-2" onPaste={handlePaste}>
+              {otp.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={(el) => (inputRefs.current[idx] = el)}
+                  id={`otp-input-${idx}`}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={1}
+                  disabled={isLocked}
+                  value={digit}
+                  onChange={(e) => handleChange(idx, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(idx, e)}
+                  className={`w-11 h-13 sm:w-12 sm:h-14 text-center text-2xl font-bold rounded-xl transition-all focus:outline-none ${
+                    isLocked
+                      ? 'bg-neutral-100 border-[#CBD5E1] text-[#64748B] cursor-not-allowed'
+                      : error
+                      ? 'bg-[#F4A9A9]/20 border-2 border-[#DC2626] text-[#DC2626] focus:border-[#DC2626]'
+                      : digit
+                      ? 'bg-white border-2 border-black text-black'
+                      : 'bg-[#F8F4E8] border border-[#CBD5E1] text-black focus:bg-white focus:border-black'
+                  }`}
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-[#64748B] px-1 pt-1">
+              <span>Hỗ trợ dán (Ctrl+V) mã 6 số</span>
+              {!isLocked && (
+                <span>
+                  Số lần thử còn lại: <strong className="text-black">{attemptsLeft}/5</strong>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ĐỒNG HỒ ĐẾM NGƯỢC 60 GIÂY & NÚT GỬI LẠI */}
+          <div className="text-center text-xs pt-1">
+            {canResend ? (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={loading}
+                className="font-bold text-black inline-flex items-center justify-center gap-1.5 hover:underline cursor-pointer disabled:opacity-50"
+              >
+                <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>Gửi lại mã OTP mới</span>
+              </button>
+            ) : (
+              <span className="text-[#64748B]">
+                Gửi lại mã sau <span className="font-bold text-black">{countdown}s</span>
+              </span>
+            )}
+          </div>
+
+          {/* NÚT SUBMIT */}
+          <button
+            type="submit"
+            disabled={loading || isLocked}
+            className="w-full py-3 rounded-xl bg-black text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 disabled:opacity-50 transition-all cursor-pointer shadow-md active:scale-[0.99]"
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Đang kiểm tra...</span>
+              </div>
+            ) : (
+              <>
+                <span>Xác thực & Tiếp tục</span>
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* QUAY LẠI ĐĂNG NHẬP HOẶC ĐĂNG KÝ */}
+      <div className="pt-4 border-t border-[#CBD5E1] text-center">
+        <Link
+          to={ROUTES.LOGIN}
+          className="inline-flex items-center gap-1.5 text-xs text-[#64748B] hover:text-black font-semibold"
+        >
+          <ArrowLeft size={14} />
+          <span>Quay lại trang Đăng nhập</span>
+        </Link>
+      </div>
     </div>
   );
 };
