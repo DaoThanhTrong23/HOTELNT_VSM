@@ -1,26 +1,36 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, User, Menu, X } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
+import { useFilter } from '../../context/FilterContext';
 
 /**
  * Navbar Tourist
  * Figma layout (Desktop): [LOGO] [Search input──────] [Tìm kiếm] [Bộ lọc ▼] [User icon]
- * prop onOpenFilter: callback mở Filter Popup (dùng ở SearchResultsPage)
+ * Nút lọc luôn hiển thị popup bộ lọc theo thiết kế
  */
 export const Navbar = ({ onOpenFilter }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const isSearchPage = location.pathname === ROUTES.SEARCH;
+  const filterContext = useFilter();
 
   const handleSearch = (e) => {
     e.preventDefault();
     const kw = searchTerm.trim();
     if (kw) {
       navigate(`${ROUTES.SEARCH}?keyword=${encodeURIComponent(kw)}`);
+    } else {
+      navigate(ROUTES.SEARCH);
+    }
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleOpenFilter = () => {
+    if (filterContext?.openFilter) {
+      filterContext.openFilter();
+    } else if (onOpenFilter) {
+      onOpenFilter();
     } else {
       navigate(ROUTES.SEARCH);
     }
@@ -75,17 +85,11 @@ export const Navbar = ({ onOpenFilter }) => {
             Tìm kiếm
           </button>
 
-          {/* Bộ lọc button – luôn hiển thị, callback khi ở SearchPage */}
+          {/* Bộ lọc button – theo thiết kế mở Popup bộ lọc */}
           <button
             id="navbar-filter-btn"
             type="button"
-            onClick={() => {
-              if (isSearchPage && onOpenFilter) {
-                onOpenFilter();
-              } else {
-                navigate(ROUTES.SEARCH);
-              }
-            }}
+            onClick={handleOpenFilter}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-[#CBD5E1] bg-white text-sm font-semibold text-black hover:border-black hover:bg-[#F8F4E8] transition-all cursor-pointer flex-shrink-0"
           >
             <SlidersHorizontal size={15} />
@@ -138,16 +142,15 @@ export const Navbar = ({ onOpenFilter }) => {
           </form>
 
           <div className="flex gap-2 pt-1">
-            {isSearchPage && onOpenFilter && (
-              <button
-                type="button"
-                onClick={() => { onOpenFilter(); setIsMobileMenuOpen(false); }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[#CBD5E1] text-sm font-semibold text-black hover:bg-[#F8F4E8] cursor-pointer"
-              >
-                <SlidersHorizontal size={15} />
-                Bộ lọc
-              </button>
-            )}
+            <button
+              id="navbar-mobile-filter-btn"
+              type="button"
+              onClick={handleOpenFilter}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[#CBD5E1] text-sm font-semibold text-black hover:bg-[#F8F4E8] cursor-pointer"
+            >
+              <SlidersHorizontal size={15} />
+              Bộ lọc
+            </button>
             <Link
               to={ROUTES.ADMIN.LOGIN}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[#CBD5E1] text-sm font-semibold text-black hover:bg-[#F8F4E8]"
