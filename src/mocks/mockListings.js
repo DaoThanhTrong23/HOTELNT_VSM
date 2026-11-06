@@ -3,8 +3,10 @@
  * Bật bằng VITE_USE_MOCK=true (mặc định bật ở .env.development) để FE chạy được khi chưa có backend.
  */
 import { haversineKm } from '../utils/geo';
+import { MOCK_HOTELS } from '../data/mockHotels';
 
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+// Mặc định bật mock khi chưa có backend hoặc khi VITE_USE_MOCK !== 'false'
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
 const img = (id) => `https://images.unsplash.com/${id}?w=1200&auto=format&fit=crop&q=80`;
 
@@ -136,7 +138,51 @@ const toPreview = (l, location) => ({
   khoangCach: mockDistance(l, location),
 });
 
-const find = (maCSLT) => LISTINGS.find((l) => String(l.maCSLT) === String(maCSLT));
+const mapMockHotelToListing = (h) => {
+  if (!h) return null;
+  const numId = Number(h.id);
+  return {
+    maCSLT: numId,
+    tenCSLT: h.name,
+    tenLoai: h.type || 'Khách sạn',
+    maPhuong: 1,
+    tenPhuong: 'Phường Lộc Thọ',
+    diaChiChiTiet: h.address,
+    moTa: h.description || `${h.name} tại Nha Trang. Phòng nghỉ tiện nghi, dịch vụ chu đáo.`,
+    latitude: 12.24 + (numId * 0.003),
+    longitude: 109.19 + (numId * 0.002),
+    gia: h.minPrice,
+    ngayCapNhatGia: '2026-10-25T08:00:00Z',
+    ngayCapNhat: '2026-10-25T08:00:00Z',
+    chuCoSo: { hoTen: 'Chủ cơ sở Nha Trang' },
+    lienHe: {
+      soDienThoai: h.phone || '0258 3898 888',
+      zalo: h.zalo || h.phone || '0905123456',
+      facebook: 'https://www.facebook.com/hotelnhatrang',
+    },
+    hinhAnh: [
+      { mediaId: numId * 10 + 1, url: h.thumbnail, thuTu: 1 },
+      { mediaId: numId * 10 + 2, url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&auto=format&fit=crop&q=80', thuTu: 2 },
+      { mediaId: numId * 10 + 3, url: 'https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?w=1200&auto=format&fit=crop&q=80', thuTu: 3 },
+      { mediaId: numId * 10 + 4, url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&auto=format&fit=crop&q=80', thuTu: 4 },
+    ],
+    video: [],
+    tienIch: (h.amenities || []).map((ten, idx) => ({
+      maTienIch: idx + 1,
+      tenTienIch: ten,
+      icon: ten.includes('bơi') ? 'pool' : ten.includes('biển') ? 'beach' : ten.includes('Wifi') ? 'wifi' : 'aircon',
+      nhom: ten.includes('biển') ? 'LAN_CAN' : 'TIEN_NGHI',
+    })),
+  };
+};
+
+const find = (maCSLT) => {
+  const found = LISTINGS.find((l) => String(l.maCSLT) === String(maCSLT));
+  if (found) return found;
+  const fromMock = MOCK_HOTELS.find((h) => String(h.id) === String(maCSLT));
+  if (fromMock) return mapMockHotelToListing(fromMock);
+  return null;
+};
 
 export const mockListingApi = {
   getDetail: async (maCSLT, location) => {

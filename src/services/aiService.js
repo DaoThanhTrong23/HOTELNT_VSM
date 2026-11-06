@@ -11,10 +11,18 @@ export const aiService = {
    */
   sendMessage: async (message, sessionId) => {
     if (USE_MOCK) return mockChatbotApi.sendMessage(message, sessionId);
-    const res = await axiosClient.post('/chatbot/messages', {
-      message,
-      ...(sessionId ? { sessionId } : {}),
-    });
-    return res?.data && typeof res.data === 'object' && 'replyText' in res.data ? res.data : res;
+    try {
+      const res = await axiosClient.post('/chatbot/messages', {
+        message,
+        ...(sessionId ? { sessionId } : {}),
+      });
+      return res?.data && typeof res.data === 'object' && 'replyText' in res.data ? res.data : res;
+    } catch (err) {
+      try {
+        return await mockChatbotApi.sendMessage(message, sessionId);
+      } catch {
+        throw err;
+      }
+    }
   },
 };
