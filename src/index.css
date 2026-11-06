@@ -26,3 +26,10 @@ body {
   color: #000000;
   min-height: 100vh;
 }
+
+/* Trang có thanh liên hệ cố định dưới đáy (mobile/tablet): đẩy nút Chatbot lên trên thanh này */
+@media (max-width: 1023px) {
+  body.has-mobile-bottom-bar .ai-chatbot-launcher {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+}
