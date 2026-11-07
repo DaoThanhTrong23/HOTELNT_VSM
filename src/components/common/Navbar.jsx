@@ -1,60 +1,54 @@
-
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, User, Menu, X } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
+import { useFilter } from '../../context/FilterContext';
 
 /**
  * Navbar Tourist
  *
  * Desktop:
- * [LOGO] [Search input] [Tìm kiếm] [Bộ lọc] [User]
+ * [LOGO] [Search input] [Tìm kiếm] [Bộ lọc ▾] [User]
  *
  * Mobile:
  * [LOGO]                 [Menu] [User]
  * [Search input             Search icon]
  *
- * prop onOpenFilter: callback mở Filter Popup (SearchResultsPage)
+ * Nút lọc luôn hiển thị popup bộ lọc theo thiết kế
  */
-
 export const Navbar = ({ onOpenFilter }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const isSearchPage = location.pathname === ROUTES.SEARCH;
+  const filterContext = useFilter();
 
   // Xử lý tìm kiếm
   const handleSearch = (e) => {
     e.preventDefault();
-
     const kw = searchTerm.trim();
-
     if (kw) {
       navigate(`${ROUTES.SEARCH}?keyword=${encodeURIComponent(kw)}`);
     } else {
       navigate(ROUTES.SEARCH);
     }
-
     setIsMobileMenuOpen(false);
   };
 
-  // Xử lý mở bộ lọc
+  // Xử lý mở bộ lọc (FilterContext hoặc callback onOpenFilter)
   const handleOpenFilter = () => {
-    if (isSearchPage && onOpenFilter) {
+    if (filterContext?.openFilter) {
+      filterContext.openFilter();
+    } else if (onOpenFilter) {
       onOpenFilter();
     } else {
       navigate(ROUTES.SEARCH);
     }
-
     setIsMobileMenuOpen(false);
   };
 
   return (
     <nav className="sticky top-0 z-40 bg-white border-b border-[#CBD5E1] shadow-sm">
-
       {/* =====================================================
           MAIN NAVBAR CONTAINER
       ===================================================== */}
@@ -67,7 +61,6 @@ export const Navbar = ({ onOpenFilter }) => {
         gap-2 md:gap-4
         py-2 md:py-0
       ">
-
         {/* =====================================================
             LOGO DESKTOP
         ===================================================== */}
@@ -84,13 +77,10 @@ export const Navbar = ({ onOpenFilter }) => {
           <span>HOTELNT</span>
         </Link>
 
-
         {/* =====================================================
-            MOBILE HEADER
-            LOGO + MENU + USER
+            MOBILE HEADER: LOGO + MENU + USER
         ===================================================== */}
         <div className="md:hidden flex items-center justify-between w-full h-7">
-
           {/* Logo */}
           <Link
             to={ROUTES.HOME}
@@ -102,7 +92,6 @@ export const Navbar = ({ onOpenFilter }) => {
 
           {/* Menu + User */}
           <div className="flex items-center gap-3">
-
             {/* Menu button */}
             <button
               id="navbar-mobile-menu-btn"
@@ -120,10 +109,7 @@ export const Navbar = ({ onOpenFilter }) => {
               aria-label={isMobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
               aria-expanded={isMobileMenuOpen}
             >
-              {isMobileMenuOpen
-                ? <X size={19} />
-                : <Menu size={19} />
-              }
+              {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
             </button>
 
             {/* User icon */}
@@ -140,16 +126,13 @@ export const Navbar = ({ onOpenFilter }) => {
             >
               <User size={17} />
             </Link>
-
           </div>
         </div>
-
 
         {/* =====================================================
             SEARCH DESKTOP + ACTIONS
         ===================================================== */}
         <div className="hidden md:flex items-center gap-2 flex-1">
-
           {/* Search form */}
           <form
             id="navbar-search-form"
@@ -228,15 +211,12 @@ export const Navbar = ({ onOpenFilter }) => {
             <SlidersHorizontal size={15} />
             Bộ lọc ▾
           </button>
-
         </div>
-
 
         {/* =====================================================
             USER ICON DESKTOP
         ===================================================== */}
         <div className="hidden md:flex items-center gap-2 flex-shrink-0 ml-auto">
-
           <Link
             to={ROUTES.ADMIN.LOGIN}
             id="navbar-user-icon"
@@ -253,13 +233,10 @@ export const Navbar = ({ onOpenFilter }) => {
           >
             <User size={22} />
           </Link>
-
         </div>
 
-
         {/* =====================================================
-            MOBILE SEARCH
-            SEARCH INPUT + ICON
+            MOBILE SEARCH: SEARCH INPUT + ICON
         ===================================================== */}
         <form
           id="navbar-mobile-search-form"
@@ -277,7 +254,6 @@ export const Navbar = ({ onOpenFilter }) => {
             focus-within:border-black
             transition-all
           ">
-
             {/* Input */}
             <input
               id="navbar-mobile-search-input"
@@ -310,12 +286,9 @@ export const Navbar = ({ onOpenFilter }) => {
             >
               <Search size={13} />
             </button>
-
           </div>
         </form>
-
       </div>
-
 
       {/* =====================================================
           MOBILE EXPANDED MENU
@@ -330,7 +303,6 @@ export const Navbar = ({ onOpenFilter }) => {
           border-b border-[#CBD5E1]
           space-y-2
         ">
-
           {/* Filter */}
           <button
             id="navbar-mobile-filter-btn"
@@ -368,10 +340,8 @@ export const Navbar = ({ onOpenFilter }) => {
             <User size={16} />
             Đăng nhập
           </Link>
-
         </div>
       )}
-
     </nav>
   );
 };
