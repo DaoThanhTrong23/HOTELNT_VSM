@@ -228,7 +228,7 @@ const DistanceText = ({ distance, status, onLocate, prefix = 'Cách vị trí c�
   }
   return (
     <button type="button" onClick={onLocate} className="inline-flex items-center gap-1.5 underline underline-offset-2 cursor-pointer hover:text-[#B45309]">
-      <Navigation size={13} />
+      {/* <Navigation size={13} /> */}
       {status === 'denied'
         ? 'Bạn chưa cho phép truy cập vị trí. Bấm để thử lại'
         : status === 'error'
@@ -447,7 +447,7 @@ export const HotelDetailPage = () => {
               {formatPrice(hotel.gia)}
               <span className="text-[11px] font-normal text-[#64748B]">/đêm</span>
             </p>
-            <p className="mt-2 flex items-center gap-1.5 text-[10px] text-[#15803D]">
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#15803D]">
               <span className="w-1 h-1 rounded-full bg-[#22C55E]" /> Giá niêm yết trực tiếp từ Host
             </p>
 
@@ -459,19 +459,27 @@ export const HotelDetailPage = () => {
               )}
               {facebook && (
                 <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Fanpage Facebook" title="Fanpage Facebook" className="flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-[#F8F4E8] hover:bg-[#F1EBD8] transition-colors">
-                  <FacebookLogo size={24} />
+                  <div class='m-3'>
+                                      <FacebookLogo size={24} />
+
+                  </div>
+                  Facebook
                 </a>
               )}
               {zalo && (
                 <a href={zalo} target="_blank" rel="noopener noreferrer" aria-label="Chat Zalo" title="Chat Zalo" className="flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-white hover:bg-[#F8F4E8] transition-colors">
-                  <ZaloLogo size={24} />
+                  <div class='m-3'>
+                    <ZaloLogo size={24} />
+
+                  </div>
+                  Zalo
                 </a>
               )}
               {!tel && !facebook && !zalo && (
                 <p className="text-[11px] text-[#64748B] text-center py-2">Cơ sở chưa cập nhật thông tin liên hệ</p>
               )}
             </div>
-            <p className="mt-2 mb-1 text-center text-[9px] text-[#64748B]">Liên hệ trực tiếp, không qua trung gian</p>
+            <p className="mt-2 mb-1 text-center text-[11px] text-[#64748B]">Liên hệ trực tiếp, không qua trung gian</p>
           </Card>
         </aside>
       </div>
