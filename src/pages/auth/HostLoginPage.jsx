@@ -136,14 +136,13 @@ export const HostLoginPage = () => {
         };
       }
 
-      // 2. Gọi API đăng nhập Host (POST /auth/signin)
+      // 2. Gọi API đăng nhập Host (POST /auth/signin theo API_DESIGN)
       let resData = null;
-      if (authService?.login) {
-        const res = await authService.login({
+      const loginFn = authService?.signin || authService?.login;
+      if (loginFn) {
+        const res = await loginFn({
           loginIdentity: cleanIdentity,
           matKhau: password,
-          email: cleanIdentity,
-          password: password,
         });
         resData = res?.data || res;
       }
@@ -263,7 +262,7 @@ export const HostLoginPage = () => {
     <div className="w-full space-y-6">
       {/* TIÊU ĐỀ */}
       <div className="text-center space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight text-black">Đăng Nhập Dành Cho Host</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-black">Đăng nhập dành cho Host</h2>
         <p className="text-xs text-[#64748B]">
           Quản lý và cập nhật cơ sở lưu trú của bạn tại TP. Nha Trang
         </p>
@@ -291,7 +290,7 @@ export const HostLoginPage = () => {
               <Clock size={14} className="text-[#DC2626]" />
               Thời gian mở khóa sau:
             </span>
-            <span className="font-mono text-base font-extrabold text-[#DC2626] tracking-wider">
+            <span className="text-base font-extrabold text-[#DC2626] tracking-wider">
               {formattedCountdown}
             </span>
           </div>

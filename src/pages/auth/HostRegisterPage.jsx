@@ -187,8 +187,9 @@ export const HostRegisterPage = () => {
 
       let responseData = null;
       try {
-        if (authService?.register) {
-          const res = await authService.register(payload);
+        const signupFn = authService?.signup || authService?.register;
+        if (signupFn) {
+          const res = await signupFn(payload);
           responseData = res?.data || res;
         }
       } catch (apiErr) {
@@ -276,7 +277,7 @@ export const HostRegisterPage = () => {
     <div className="w-full space-y-6">
       {/* TIÊU ĐỀ HEADER */}
       <div className="text-center space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight text-black">Đăng Ký Tài Khoản Host</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-black">Đăng ký tài khoản Host</h2>
         <p className="text-xs text-[#64748B]">
           Trở thành đối tác cơ sở lưu trú Nha Trang không qua trung gian
         </p>

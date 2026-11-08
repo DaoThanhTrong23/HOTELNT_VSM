@@ -3,7 +3,7 @@
  * Bật bằng VITE_USE_MOCK=true (mặc định bật ở .env.development) để FE chạy được khi chưa có backend.
  */
 import { haversineKm } from '../utils/geo';
-import { MOCK_HOTELS } from '../data/mockHotels';
+import { MOCK_HOTELS } from './mockHotels';
 
 // Mặc định bật mock khi chưa có backend hoặc khi VITE_USE_MOCK !== 'false'
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -197,11 +197,66 @@ export const mockListingApi = {
     if (!l) throw notFound();
     return toPreview(l, location);
   },
-  search: async ({ keyword = '' } = {}) => {
+  search: async ({
+    keyword = '',
+    loaiHinh,
+    maLoai,
+    maPhuong,
+    radiusKm,
+    minPrice,
+    maxPrice,
+    giaTu,
+    giaDen,
+    amenities,
+    tienIch,
+    sortBy,
+    page = 1,
+    limit = 10,
+  } = {}) => {
     await delay();
     const kw = keyword.toLowerCase();
-    const items = LISTINGS.filter((l) => !kw || l.tenCSLT.toLowerCase().includes(kw)).map((l) => toPreview(l));
-    return { items, pagination: { totalItems: items.length, totalPages: 1, currentPage: 1, limit: 10 } };
+    const minP = minPrice ?? giaTu ?? 0;
+    const maxP = maxPrice ?? giaDen ?? Infinity;
+    const targetWard = maPhuong ? String(maPhuong) : null;
+    const targetType = loaiHinh && loaiHinh !== 'Tất cả' ? loaiHinh.toLowerCase() : null;
+    const targetRadius = radiusKm ? Number(radiusKm) : 0;
+    const reqAmenities = amenities
+      ? (Array.isArray(amenities) ? amenities : amenities.split(',')).filter(Boolean)
+      : [];
+
+    let filtered = LISTINGS.filter((l) => {
+      if (kw && !l.tenCSLT.toLowerCase().includes(kw)) return false;
+      if (targetType && l.tenLoai.toLowerCase() !== targetType) return false;
+      if (targetWard && String(l.maPhuong) !== targetWard) return false;
+      if (l.gia < minP || l.gia > maxP) return false;
+      if (targetRadius > 0) {
+        const dist = l.khoangCach ?? mockDistance(l);
+        if (dist > targetRadius) return false;
+      }
+      if (reqAmenities.length > 0) {
+        const listAmenityNames = l.tienIch.map((t) => t.tenTienIch.toLowerCase());
+        const hasAll = reqAmenities.every((req) =>
+          listAmenityNames.some((name) => name.includes(req.toLowerCase()) || req.toLowerCase().includes(name))
+        );
+        if (!hasAll) return false;
+      }
+      return true;
+    });
+
+    if (sortBy === 'price_asc') filtered.sort((a, b) => a.gia - b.gia);
+    else if (sortBy === 'price_desc') filtered.sort((a, b) => b.gia - a.gia);
+    else if (sortBy === 'distance') filtered.sort((a, b) => mockDistance(a) - mockDistance(b));
+
+    const items = filtered.map((l) => toPreview(l));
+    return {
+      items,
+      pagination: {
+        totalItems: items.length,
+        totalPages: Math.ceil(items.length / limit) || 1,
+        currentPage: Number(page),
+        limit: Number(limit),
+      },
+    };
   },
 };
 

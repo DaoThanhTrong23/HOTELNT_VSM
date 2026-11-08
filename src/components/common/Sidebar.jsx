@@ -1,6 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
   Hotel,
   PlusCircle,
   UserCheck,
@@ -8,7 +7,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Building2,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,14 +27,14 @@ export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
   ];
 
   const adminNavItems = [
-    { label: 'Tổng quan', path: ROUTES.ADMIN.DASHBOARD, icon: LayoutDashboard },
+    // Ẩn trang Tổng quan (không xóa code) theo yêu cầu - Admin chỉ có: Kiểm duyệt, Quản lý host, Cấu hình hệ thống
+    // { label: 'Tổng quan', path: ROUTES.ADMIN.DASHBOARD, icon: LayoutDashboard },
     {
-      label: 'Kiểm duyệt',
+      label: 'Kiểm duyệt cơ sở',
       path: ROUTES.ADMIN.MODERATION,
       icon: ClipboardCheck,
-      badge: pendingCount,
     },
-    { label: 'Quản lý Host', path: ROUTES.ADMIN.HOST_MANAGEMENT, icon: Users },
+    { label: 'Quản lí Host', path: ROUTES.ADMIN.HOST_MANAGEMENT, icon: Users },
     { label: 'Cấu hình hệ thống', path: ROUTES.ADMIN.SYSTEM_CONFIG, icon: Settings },
   ];
 
@@ -46,24 +44,14 @@ export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
     <aside className="w-64 bg-white border-r border-[#CBD5E1] flex flex-col h-screen sticky top-0 z-40">
       {/* BRAND */}
       <div className="p-6 border-b border-[#CBD5E1]">
-        {role === 'HOST' ? (
-          <div>
-            <h1 className="text-2xl font-black text-black tracking-tight">LOGO</h1>
-            <p className="text-xs text-[#64748B] mt-1.5 leading-relaxed">
-              Chào mừng! đã đến với trang dành cho chủ cơ sở
-            </p>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center">
-              <Building2 className="text-[#D97706]" size={22} />
-            </div>
-            <div>
-              <h2 className="font-bold text-base text-black leading-tight">Admin Portal</h2>
-              <span className="text-xs text-[#64748B]">Nha Trang Hotel</span>
-            </div>
-          </div>
-        )}
+        <div>
+          <h1 className="text-2xl font-black text-black tracking-tight">LOGO</h1>
+          <p className="text-xs text-[#64748B] mt-1.5 leading-relaxed">
+            {role === 'ADMIN'
+              ? 'Chào mừng! đã đến với trang dành cho admin'
+              : 'Chào mừng! đã đến với trang dành cho chủ cơ sở'}
+          </p>
+        </div>
       </div>
 
       {/* NAVIGATION */}
@@ -106,7 +94,9 @@ export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
             </div>
             <div className="truncate text-xs">
               <p className="font-bold text-white truncate">{user?.name || 'Đào Thanh Trọng'}</p>
-              <p className="text-[#CBD5E1] text-[11px] truncate">Chủ cơ sở</p>
+              <p className="text-[#CBD5E1] text-[11px] truncate">
+                {role === 'ADMIN' ? 'Admin' : 'Chủ cơ sở'}
+              </p>
             </div>
           </div>
 

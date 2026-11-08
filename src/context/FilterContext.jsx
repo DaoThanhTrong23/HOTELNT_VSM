@@ -4,7 +4,7 @@ import { PRICE_LIMITS } from '../constants/enums';
 import { ROUTES } from '../constants/routes';
 import { FilterPopup } from '../components/tourist/FilterPopup';
 
-const FilterContext = createContext(null);
+export const FilterContext = createContext(null);
 
 /**
  * FilterProvider quản lý trạng thái hiển thị Popup Bộ Lọc cho luồng Tourist
@@ -17,6 +17,8 @@ export const FilterProvider = ({ children }) => {
 
   // Draft filters bên trong popup (chỉ được áp dụng khi người dùng nhấn "Áp dụng")
   const [draftLoaiHinh, setDraftLoaiHinh] = useState('Tất cả');
+  const [draftMaPhuong, setDraftMaPhuong] = useState('');
+  const [draftRadiusKm, setDraftRadiusKm] = useState(0);
   const [draftMinPrice, setDraftMinPrice] = useState(PRICE_LIMITS.MIN_VND);
   const [draftMaxPrice, setDraftMaxPrice] = useState(PRICE_LIMITS.MAX_VND);
   const [draftAmenities, setDraftAmenities] = useState([]);
@@ -24,6 +26,8 @@ export const FilterProvider = ({ children }) => {
   // Đồng bộ draft filters từ URL khi mở popup
   const openFilter = useCallback(() => {
     const loaiHinhParam = searchParams.get('loaiHinh') || searchParams.get('type') || 'Tất cả';
+    const maPhuongParam = searchParams.get('maPhuong') || searchParams.get('ward') || '';
+    const radiusKmParam = searchParams.get('radiusKm') ? Number(searchParams.get('radiusKm')) : 0;
     const minPriceParam = searchParams.get('minPrice')
       ? Number(searchParams.get('minPrice'))
       : PRICE_LIMITS.MIN_VND;
@@ -35,6 +39,8 @@ export const FilterProvider = ({ children }) => {
       : [];
 
     setDraftLoaiHinh(loaiHinhParam);
+    setDraftMaPhuong(maPhuongParam);
+    setDraftRadiusKm(radiusKmParam);
     setDraftMinPrice(minPriceParam);
     setDraftMaxPrice(maxPriceParam);
     setDraftAmenities(amenitiesParam);
@@ -53,6 +59,8 @@ export const FilterProvider = ({ children }) => {
 
   const handleResetDraft = useCallback(() => {
     setDraftLoaiHinh('Tất cả');
+    setDraftMaPhuong('');
+    setDraftRadiusKm(0);
     setDraftMinPrice(PRICE_LIMITS.MIN_VND);
     setDraftMaxPrice(PRICE_LIMITS.MAX_VND);
     setDraftAmenities([]);
@@ -67,6 +75,12 @@ export const FilterProvider = ({ children }) => {
     }
     if (draftLoaiHinh && draftLoaiHinh !== 'Tất cả') {
       params.set('loaiHinh', draftLoaiHinh);
+    }
+    if (draftMaPhuong) {
+      params.set('maPhuong', draftMaPhuong);
+    }
+    if (draftRadiusKm > 0) {
+      params.set('radiusKm', draftRadiusKm.toString());
     }
     if (draftMinPrice > PRICE_LIMITS.MIN_VND) {
       params.set('minPrice', draftMinPrice.toString());
@@ -88,7 +102,16 @@ export const FilterProvider = ({ children }) => {
 
     setIsFilterOpen(false);
     navigate(targetUrl);
-  }, [searchParams, draftLoaiHinh, draftMinPrice, draftMaxPrice, draftAmenities, navigate]);
+  }, [
+    searchParams,
+    draftLoaiHinh,
+    draftMaPhuong,
+    draftRadiusKm,
+    draftMinPrice,
+    draftMaxPrice,
+    draftAmenities,
+    navigate,
+  ]);
 
   const contextValue = useMemo(
     () => ({
@@ -107,6 +130,10 @@ export const FilterProvider = ({ children }) => {
         onClose={closeFilter}
         loaiHinh={draftLoaiHinh}
         setLoaiHinh={setDraftLoaiHinh}
+        maPhuong={draftMaPhuong}
+        setMaPhuong={setDraftMaPhuong}
+        radiusKm={draftRadiusKm}
+        setRadiusKm={setDraftRadiusKm}
         minPrice={draftMinPrice}
         setMinPrice={setDraftMinPrice}
         maxPrice={draftMaxPrice}
@@ -123,3 +150,5 @@ export const FilterProvider = ({ children }) => {
 export const useFilter = () => {
   return useContext(FilterContext);
 };
+
+export default FilterProvider;

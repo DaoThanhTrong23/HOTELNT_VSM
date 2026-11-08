@@ -131,7 +131,7 @@ export const AdminDashboardPage = () => {
   }).format(new Date());
 
   return (
-    <div className="min-h-full space-y-7 pb-8">
+    <div className="min-h-full space-y-7 p-6 sm:p-8 lg:p-10 pb-8">
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

@@ -4,6 +4,7 @@ import { HotelCard } from '../../components/common/HotelCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { MapSection } from '../../components/tourist/MapSection';
 import { ROUTES } from '../../constants/routes';
+import { listingService } from '../../services/listingService';
 import { FEATURED_HOTELS } from '../../data/mockHotels';
 
 /**
@@ -17,12 +18,37 @@ export const HomePage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // ⚠️ KHI BE SẴN SÀNG: Thay bằng hotelService.getFeaturedHotels()
-    const timer = setTimeout(() => {
-      setHotels(FEATURED_HOTELS);
-      setLoading(false);
-    }, 350);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    const fetchHotels = async () => {
+      try {
+        setLoading(true);
+        const res = await listingService.searchListings({ limit: 6 });
+        const items = res?.items || res?.data || (Array.isArray(res) ? res : []);
+        if (isMounted) {
+          if (items.length > 0) {
+            setHotels(items.slice(0, 6));
+          } else {
+            setHotels(FEATURED_HOTELS);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi khi tải CSLT nổi bật từ listingService, fallback mockHotels:', err);
+        if (isMounted) {
+          setHotels(FEATURED_HOTELS);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchHotels();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -55,7 +81,7 @@ export const HomePage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {hotels.map((hotel) => (
-              <HotelCard key={hotel.id} hotel={hotel} />
+              <HotelCard key={hotel.maCSLT || hotel.id} hotel={hotel} />
             ))}
           </div>
         )}
@@ -63,3 +89,5 @@ export const HomePage = () => {
     </div>
   );
 };
+
+export default HomePage;

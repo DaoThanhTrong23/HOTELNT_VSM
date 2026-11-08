@@ -217,14 +217,33 @@ export const VerifyOtpPage = () => {
         };
       }
 
-      // 2. Gọi API thực tế
+      // 2. Gọi API thực tế theo chuẩn API_DESIGN
       let verifyRes = null;
-      if (authService?.verifyOtp) {
+      if (flowType === 'SIGNUP' && authService?.signupVerify) {
+        verifyRes = await authService.signupVerify({
+          registrationId: challengeId,
+          otpCode: fullOtp,
+          email,
+        });
+      } else if (flowType === 'FORGOT_PASSWORD' && authService?.forgotPasswordVerify) {
+        verifyRes = await authService.forgotPasswordVerify({
+          challengeId,
+          otpCode: fullOtp,
+          email,
+        });
+      } else if (authService?.signinVerify) {
+        verifyRes = await authService.signinVerify({
+          challengeId,
+          otpCode: fullOtp,
+          email,
+        });
+      } else if (authService?.verifyOtp) {
         verifyRes = await authService.verifyOtp({
           email,
           challengeId,
-          otp: fullOtp,
+          registrationId: challengeId,
           otpCode: fullOtp,
+          flow: flowType,
         });
       }
 

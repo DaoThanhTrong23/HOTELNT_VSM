@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Star, MapPin, Phone, MessageSquare } from 'lucide-react';
+import { MapPin, Phone, MessageSquare } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
 /**
@@ -7,7 +7,17 @@ import { formatCurrency } from '../../utils/formatters';
  * Layout: ảnh bên trái, chi tiết và nút hành động bên phải
  */
 export const HotelListItem = ({ hotel }) => {
-  const { id, name, type, address, thumbnail, minPrice, rating, phone, zalo, description } = hotel;
+  if (!hotel) return null;
+
+  const id = hotel.maCSLT ?? hotel.id;
+  const name = hotel.tenCSLT ?? hotel.name;
+  const type = hotel.tenLoai ?? hotel.type ?? 'Khách sạn';
+  const address = hotel.diaChiChiTiet ?? hotel.address;
+  const thumbnail = hotel.duongDanAnh ?? hotel.thumbnail ?? hotel.hinhAnh?.[0]?.url;
+  const minPrice = hotel.gia ?? hotel.minPrice;
+  const phone = hotel.lienHe?.soDienThoai ?? hotel.phone;
+  const zalo = hotel.lienHe?.zalo ?? hotel.zalo;
+  const description = hotel.moTa ?? hotel.description;
 
   return (
     <div className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden flex flex-col sm:flex-row hover:shadow-md transition-shadow">
@@ -24,23 +34,16 @@ export const HotelListItem = ({ hotel }) => {
             Chưa có ảnh
           </div>
         )}
-        <span className="absolute top-3 left-3 bg-black/75 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">
-          {type}
-        </span>
       </div>
 
       {/* Thông tin */}
       <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
         <div className="space-y-1.5">
-          {/* Tên + Rating */}
+          {/* Tên */}
           <div className="flex items-start justify-between gap-3">
             <h3 className="font-bold text-base text-black leading-snug hover:text-[#D97706] transition-colors line-clamp-2">
               <Link to={`/hotel/${id}`}>{name}</Link>
             </h3>
-            <div className="flex items-center gap-1 flex-shrink-0 bg-[#F8F4E8] px-2 py-1 rounded-lg">
-              <Star size={13} className="fill-[#D97706] text-[#D97706]" />
-              <span className="text-xs font-bold text-black">{rating}</span>
-            </div>
           </div>
 
           {/* Địa chỉ */}
@@ -51,45 +54,46 @@ export const HotelListItem = ({ hotel }) => {
 
           {/* Mô tả ngắn */}
           {description && (
-            <p className="text-xs text-[#64748B] line-clamp-2 leading-relaxed">{description}</p>
+            <p className="text-xs text-[#64748B] line-clamp-2 pt-1 leading-relaxed">
+              {description}
+            </p>
           )}
         </div>
 
-        {/* Bottom: Giá + Nút */}
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#CBD5E1]/60">
+        {/* Giá & Nút hành động */}
+        <div className="pt-4 mt-3 border-t border-[#CBD5E1]/60 flex items-center justify-between gap-2">
           <div>
-            <span className="text-xs text-[#64748B]">Giá từ:</span>
-            <div className="font-bold text-base text-black">
+            <span className="text-[11px] text-[#64748B] block">Giá chỉ từ</span>
+            <div className="text-base font-bold text-black">
               {formatCurrency(minPrice)}
-              <span className="text-xs font-normal text-[#64748B]"> / đêm</span>
+              <span className="text-xs font-normal text-[#64748B]"> /đêm</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {phone && (
               <a
                 href={`tel:${phone}`}
-                title="Gọi điện"
-                className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8] transition-colors"
+                title={`Gọi ${phone}`}
+                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
               >
                 <Phone size={14} />
               </a>
             )}
             {zalo && (
               <a
-                href={`https://zalo.me/${zalo}`}
+                href={zalo.startsWith('http') ? zalo : `https://zalo.me/${zalo.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
-                title="Chat Zalo"
-                className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8] transition-colors"
+                title="Nhắn Zalo"
+                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
               >
                 <MessageSquare size={14} />
               </a>
             )}
             <Link
               to={`/hotel/${id}`}
-              id={`view-detail-${id}`}
-              className="px-4 py-2 rounded-lg bg-black text-white text-xs font-semibold hover:opacity-85 transition-opacity"
+              className="px-4 py-2 rounded-xl bg-black text-white text-xs font-semibold hover:bg-neutral-800 transition-colors"
             >
               Xem chi tiết
             </Link>
@@ -99,3 +103,5 @@ export const HotelListItem = ({ hotel }) => {
     </div>
   );
 };
+
+export default HotelListItem;

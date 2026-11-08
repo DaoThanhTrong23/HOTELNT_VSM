@@ -16,7 +16,7 @@ export const ZaloLogo = ({ size = 24, className = '' }) => (
       x="24"
       y="29.5"
       textAnchor="middle"
-      fontFamily="Arial, Helvetica, sans-serif"
+      fontFamily="inherit"
       fontWeight="700"
       fontSize="15"
       fill="#fff"

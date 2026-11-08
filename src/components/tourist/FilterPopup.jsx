@@ -1,17 +1,33 @@
 import { useEffect, useRef } from 'react';
-import { X, RotateCcw } from 'lucide-react';
+import { X, RotateCcw, MapPin, Navigation } from 'lucide-react';
 import { PRICE_LIMITS } from '../../constants/enums';
-import { LOAI_HINH_OPTIONS, AMENITY_OPTIONS, PRICE_PRESETS } from '../../constants/filters';
+import {
+  LOAI_HINH_OPTIONS,
+  AMENITY_OPTIONS,
+  PRICE_PRESETS,
+  NHA_TRANG_WARDS,
+  RADIUS_LIMITS,
+  RADIUS_PRESETS,
+} from '../../constants/filters';
 import { formatCurrency } from '../../utils/formatters';
 
 /**
- * Component Popup / Modal bộ lọc tìm kiếm theo đúng Figma
+ * Component Popup / Modal bộ lọc tìm kiếm theo đúng Figma & SRS FR-03, API_DESIGN Row 3:
+ * - Loại hình cơ sở (Hotel, Resort, Homestay,...)
+ * - Dropdown Phường/Xã TP. Nha Trang (maPhuong)
+ * - Thanh chọn Bán kính khoảng cách km (radiusKm)
+ * - Khoảng giá VNĐ/đêm
+ * - Tiện ích (quy tắc AND)
  */
 export const FilterPopup = ({
   isOpen,
   onClose,
   loaiHinh,
   setLoaiHinh,
+  maPhuong,
+  setMaPhuong,
+  radiusKm = 0,
+  setRadiusKm,
   minPrice,
   setMinPrice,
   maxPrice,
@@ -50,12 +66,15 @@ export const FilterPopup = ({
         role="dialog"
         aria-modal="true"
         aria-label="Bộ lọc tìm kiếm"
-        className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl"
+        className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#CBD5E1]">
-          <h2 className="font-bold text-base text-black">Bộ lọc tìm kiếm</h2>
+          <div>
+            <h2 className="font-bold text-base text-black">Bộ lọc tìm kiếm</h2>
+            <p className="text-xs text-[#64748B]">Tùy chỉnh tiêu chí tìm kiếm cơ sở lưu trú</p>
+          </div>
           <button
             id="close-filter-popup-btn"
             type="button"
@@ -69,8 +88,8 @@ export const FilterPopup = ({
 
         {/* Nội dung cuộn */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
-          {/* ── Loại hình cơ sở (FR-03) ── */}
-          <div className="space-y-3">
+          {/* ── 1. Loại hình cơ sở (FR-03) ── */}
+          <div className="space-y-2.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
               Loại hình cơ sở
             </label>
@@ -93,7 +112,95 @@ export const FilterPopup = ({
             </div>
           </div>
 
-          {/* ── Khoảng giá (FR-03) ── */}
+          {/* ── 2. Khu vực / Phường Xã TP. Nha Trang (FR-03, Row 3 & 10) ── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="filter-ward-select" className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+                <MapPin size={13} className="text-[#64748B]" />
+                Khu vực / Phường Xã (TP. Nha Trang)
+              </label>
+              {maPhuong && (
+                <button
+                  type="button"
+                  onClick={() => setMaPhuong('')}
+                  className="text-[11px] text-[#64748B] hover:text-black underline cursor-pointer"
+                >
+                  Bỏ chọn
+                </button>
+              )}
+            </div>
+
+            <div className="relative">
+              <select
+                id="filter-ward-select"
+                value={maPhuong || ''}
+                onChange={(e) => setMaPhuong(e.target.value)}
+                className="w-full appearance-none px-3.5 py-2.5 pr-8 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-black focus:outline-none focus:border-black transition cursor-pointer font-medium"
+              >
+                {NHA_TRANG_WARDS.map((ward) => (
+                  <option key={ward.id} value={ward.id}>
+                    {ward.name}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-[#64748B]">
+                ▼
+              </span>
+            </div>
+          </div>
+
+          {/* ── 3. Bán kính khoảng cách km (radiusKm - FR-03, Row 3) ── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="filter-radius-km" className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+                <Navigation size={13} className="text-[#64748B]" />
+                Bán kính khoảng cách (km)
+              </label>
+              <span className="text-xs font-semibold text-black bg-[#F8F4E8] px-2.5 py-0.5 rounded-full border border-[#CBD5E1]/60">
+                {radiusKm > 0 ? `Trong vòng ${radiusKm} km` : 'Tất cả (Không giới hạn)'}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <input
+                id="filter-radius-km"
+                type="range"
+                min={RADIUS_LIMITS.MIN_KM}
+                max={RADIUS_LIMITS.MAX_KM}
+                step={1}
+                value={radiusKm}
+                onChange={(e) => setRadiusKm(Number(e.target.value))}
+                className="w-full h-1.5 rounded-full accent-black cursor-pointer bg-neutral-200"
+              />
+              <div className="flex justify-between text-[11px] text-[#94A3B8]">
+                <span>Tất cả</span>
+                <span>5 km</span>
+                <span>10 km</span>
+                <span>15 km</span>
+                <span>20 km</span>
+              </div>
+            </div>
+
+            {/* Presets bán kính nhanh */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {RADIUS_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setRadiusKm(preset.value)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-colors ${
+                    radiusKm === preset.value
+                      ? 'bg-black text-white border-black'
+                      : 'bg-[#F8F4E8] text-[#64748B] border-[#CBD5E1] hover:border-black hover:text-black'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── 4. Khoảng giá (VNĐ/đêm - FR-03) ── */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
@@ -124,7 +231,7 @@ export const FilterPopup = ({
                     const v = Number(e.target.value);
                     setMinPrice(v > maxPrice ? maxPrice : v);
                   }}
-                  className="w-full h-1.5 rounded-full accent-black cursor-pointer"
+                  className="w-full h-1.5 rounded-full accent-black cursor-pointer bg-neutral-200"
                 />
               </div>
 
@@ -149,7 +256,7 @@ export const FilterPopup = ({
                     const v = Number(e.target.value);
                     setMaxPrice(v < minPrice ? minPrice : v);
                   }}
-                  className="w-full h-1.5 rounded-full accent-black cursor-pointer"
+                  className="w-full h-1.5 rounded-full accent-black cursor-pointer bg-neutral-200"
                 />
               </div>
             </div>
@@ -176,7 +283,7 @@ export const FilterPopup = ({
             </div>
           </div>
 
-          {/* ── Tiện ích (FR-04 – quy tắc AND) ── */}
+          {/* ── 5. Tiện ích (FR-04 – quy tắc AND) ── */}
           <div className="space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
               Tiện ích
@@ -185,7 +292,7 @@ export const FilterPopup = ({
               {AMENITY_OPTIONS.map((item) => (
                 <label
                   key={item}
-                  className="flex items-center gap-2.5 text-sm text-black cursor-pointer group"
+                  className="flex items-center gap-2.5 text-xs sm:text-sm text-black cursor-pointer group"
                 >
                   <input
                     type="checkbox"
@@ -194,7 +301,7 @@ export const FilterPopup = ({
                     onChange={() => toggleAmenity(item)}
                     className="w-4 h-4 rounded border-[#CBD5E1] accent-black cursor-pointer"
                   />
-                  <span className="text-sm group-hover:text-[#D97706] transition-colors">{item}</span>
+                  <span className="group-hover:text-[#D97706] transition-colors">{item}</span>
                 </label>
               ))}
             </div>
@@ -207,12 +314,12 @@ export const FilterPopup = ({
         </div>
 
         {/* Footer: Đặt lại + Áp dụng */}
-        <div className="px-6 py-4 border-t border-[#CBD5E1] flex items-center gap-3">
+        <div className="px-6 py-4 border-t border-[#CBD5E1] flex items-center gap-3 bg-neutral-50">
           <button
             id="filter-reset-btn"
             type="button"
             onClick={onReset}
-            className="flex-1 py-3 rounded-xl border border-[#CBD5E1] text-sm font-semibold text-black hover:bg-[#F8F4E8] transition-colors cursor-pointer flex items-center justify-center gap-2"
+            className="flex-1 py-3 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm font-semibold text-black hover:bg-[#F8F4E8] transition-colors cursor-pointer flex items-center justify-center gap-2"
           >
             <RotateCcw size={14} />
             Đặt lại
@@ -221,7 +328,7 @@ export const FilterPopup = ({
             id="filter-apply-btn"
             type="button"
             onClick={onApply}
-            className="flex-1 py-3 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-85 transition-opacity cursor-pointer"
+            className="flex-1 py-3 rounded-xl bg-black text-white text-xs sm:text-sm font-bold hover:bg-neutral-800 transition-colors cursor-pointer shadow-xs"
           >
             Áp dụng
           </button>
@@ -230,3 +337,5 @@ export const FilterPopup = ({
     </div>
   );
 };
+
+export default FilterPopup;

@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, User, Menu, X } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
 import { useFilter } from '../../context/FilterContext';
 
 /**
- * Navbar Tourist
+ * Navbar Tourist theo Figma Design:
  *
  * Desktop:
- * [LOGO] [Search input] [Tìm kiếm] [Bộ lọc ▾] [User]
+ * [LOGO] [Search input] [Tìm kiếm] [Bộ lọc] [User]
  *
  * Mobile:
  * [LOGO]                 [Menu] [User]
@@ -17,11 +17,33 @@ import { useFilter } from '../../context/FilterContext';
  * Nút lọc luôn hiển thị popup bộ lọc theo thiết kế
  */
 export const Navbar = ({ onOpenFilter }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('keyword') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  const mobileUserMenuRef = useRef(null);
+
+  // Đóng dropdown tài khoản khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const inDesktop = userMenuRef.current && userMenuRef.current.contains(event.target);
+      const inMobile = mobileUserMenuRef.current && mobileUserMenuRef.current.contains(event.target);
+      if (!inDesktop && !inMobile) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navigate = useNavigate();
   const filterContext = useFilter();
+
+  // Đồng bộ ô search khi keyword trên URL thay đổi
+  useEffect(() => {
+    setSearchTerm(searchParams.get('keyword') || '');
+  }, [searchParams]);
 
   // Xử lý tìm kiếm
   const handleSearch = (e) => {
@@ -69,12 +91,12 @@ export const Navbar = ({ onOpenFilter }) => {
           className="
             hidden md:flex
             items-center gap-2
-            font-black text-lg text-black
+            font-black text-xl text-black
             flex-shrink-0 tracking-tight
           "
           id="navbar-logo"
         >
-          <span>HOTELNT</span>
+          <span>LOGO</span>
         </Link>
 
         {/* =====================================================
@@ -87,7 +109,7 @@ export const Navbar = ({ onOpenFilter }) => {
             id="navbar-mobile-logo"
             className="font-black text-base text-black tracking-tight"
           >
-            HOTELNT
+            LOGO
           </Link>
 
           {/* Menu + User */}
@@ -112,20 +134,52 @@ export const Navbar = ({ onOpenFilter }) => {
               {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
             </button>
 
-            {/* User icon */}
-            <Link
-              to={ROUTES.ADMIN.LOGIN}
-              id="navbar-mobile-user-icon"
-              title="Đăng nhập"
-              className="
-                text-black
-                flex items-center justify-center
-                hover:text-gray-500
-                transition-colors
-              "
-            >
-              <User size={17} />
-            </Link>
+            {/* User icon with Dropdown (Host & Admin) */}
+            <div ref={mobileUserMenuRef} className="relative">
+              <button
+                type="button"
+                id="navbar-mobile-user-icon"
+                onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                title="Đăng nhập"
+                className={`
+                  p-1
+                  flex items-center justify-center
+                  rounded-md
+                  transition-colors
+                  cursor-pointer
+                  ${isUserMenuOpen ? 'bg-black text-white' : 'text-black hover:text-gray-500'}
+                `}
+                aria-expanded={isUserMenuOpen}
+              >
+                <User size={18} />
+              </button>
+
+              {/* Mobile User Dropdown Popover */}
+              {isUserMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <ul className="space-y-0.5">
+                    <li>
+                      <Link
+                        to={ROUTES.LOGIN}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+                      >
+                        Đăng nhập với quyền host
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to={ROUTES.ADMIN.LOGIN}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+                      >
+                        Đăng nhập với quyền admin
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -153,7 +207,7 @@ export const Navbar = ({ onOpenFilter }) => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm kiếm khách sạn..."
+              placeholder="Tìm khách sạn..."
               className="
                 flex-1 min-w-0
                 px-4 py-2.5
@@ -172,7 +226,7 @@ export const Navbar = ({ onOpenFilter }) => {
             type="button"
             onClick={handleSearch}
             className="
-              flex items-center gap-1.5
+              flex items-center justify-center
               px-4 py-2.5
               rounded-lg
               border border-black
@@ -185,7 +239,6 @@ export const Navbar = ({ onOpenFilter }) => {
               flex-shrink-0
             "
           >
-            <Search size={15} />
             Tìm kiếm
           </button>
 
@@ -195,7 +248,7 @@ export const Navbar = ({ onOpenFilter }) => {
             type="button"
             onClick={handleOpenFilter}
             className="
-              flex items-center gap-1.5
+              flex items-center gap-2
               px-4 py-2.5
               rounded-lg
               border border-[#CBD5E1]
@@ -208,31 +261,63 @@ export const Navbar = ({ onOpenFilter }) => {
               flex-shrink-0
             "
           >
+            <span>Bộ lọc</span>
             <SlidersHorizontal size={15} />
-            Bộ lọc ▾
           </button>
         </div>
 
         {/* =====================================================
-            USER ICON DESKTOP
+            USER ICON DESKTOP + DROPDOWN (UL / LI)
         ===================================================== */}
-        <div className="hidden md:flex items-center gap-2 flex-shrink-0 ml-auto">
-          <Link
-            to={ROUTES.ADMIN.LOGIN}
+        <div ref={userMenuRef} className="hidden md:flex items-center gap-2 flex-shrink-0 ml-auto relative">
+          <button
+            type="button"
             id="navbar-user-icon"
+            onClick={() => setIsUserMenuOpen((prev) => !prev)}
+            aria-expanded={isUserMenuOpen}
+            aria-haspopup="true"
             title="Đăng nhập"
-            className="
+            className={`
               w-9 h-9
               rounded-full
               flex items-center justify-center
-              text-[#64748B]
-              hover:text-black
-              hover:bg-[#F8F4E8]
-              transition-colors
-            "
+              transition-all
+              cursor-pointer
+              ${
+                isUserMenuOpen
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-[#64748B] hover:text-black hover:bg-[#F8F4E8]'
+              }
+            `}
           >
-            <User size={22} />
-          </Link>
+            <User size={20} />
+          </button>
+
+          {/* DROPDOWN MENU UL / LI */}
+          {isUserMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <ul className="space-y-0.5">
+                <li>
+                  <Link
+                    to={ROUTES.LOGIN}
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
+                  >
+                    Đăng nhập với quyền host
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to={ROUTES.ADMIN.LOGIN}
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
+                  >
+                    Đăng nhập với quyền admin
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* =====================================================
@@ -292,7 +377,7 @@ export const Navbar = ({ onOpenFilter }) => {
 
       {/* =====================================================
           MOBILE EXPANDED MENU
-      ===================================================== */}
+        ===================================================== */}
       {isMobileMenuOpen && (
         <div className="
           md:hidden
@@ -323,13 +408,13 @@ export const Navbar = ({ onOpenFilter }) => {
             Bộ lọc
           </button>
 
-          {/* Login */}
+          {/* Login with Host */}
           <Link
-            to={ROUTES.ADMIN.LOGIN}
-            id="navbar-mobile-login"
+            to={ROUTES.LOGIN}
+            id="navbar-mobile-login-host"
             onClick={() => setIsMobileMenuOpen(false)}
             className="
-              flex items-center gap-2
+              block
               px-3 py-2.5
               rounded-lg
               text-sm font-semibold text-black
@@ -337,8 +422,24 @@ export const Navbar = ({ onOpenFilter }) => {
               transition-colors
             "
           >
-            <User size={16} />
-            Đăng nhập
+            Đăng nhập với quyền host
+          </Link>
+
+          {/* Login with Admin */}
+          <Link
+            to={ROUTES.ADMIN.LOGIN}
+            id="navbar-mobile-login-admin"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="
+              block
+              px-3 py-2.5
+              rounded-lg
+              text-sm font-semibold text-black
+              hover:bg-[#F8F4E8]
+              transition-colors
+            "
+          >
+            Đăng nhập với quyền admin
           </Link>
         </div>
       )}

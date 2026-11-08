@@ -9,7 +9,7 @@ export const TouristLayout = () => {
     <FilterProvider>
       <div className="min-h-screen flex flex-col bg-[#F8F4E8]">
         <Navbar />
-        <main className="flex-1">
+        <main className="flex-1 flex flex-col">
           <Outlet />
         </main>
         <Footer />

@@ -1,21 +1,21 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Star, Phone, MessageSquare } from 'lucide-react';
+import { MapPin, Phone, MessageSquare } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
 export const HotelCard = ({ hotel }) => {
-  const {
-    id,
-    name,
-    type = 'Khách sạn',
-    thumbnail,
-    address,
-    minPrice,
-    maxPrice,
-    rating = 4.8,
-    phone,
-    zalo,
-    amenities = [],
-  } = hotel;
+  if (!hotel) return null;
+
+  const id = hotel.maCSLT ?? hotel.id;
+  const name = hotel.tenCSLT ?? hotel.name;
+  const type = hotel.tenLoai ?? hotel.type ?? 'Khách sạn';
+  const thumbnail = hotel.duongDanAnh ?? hotel.thumbnail ?? hotel.hinhAnh?.[0]?.url;
+  const address = hotel.diaChiChiTiet ?? hotel.address;
+  const minPrice = hotel.gia ?? hotel.minPrice;
+  const phone = hotel.lienHe?.soDienThoai ?? hotel.phone;
+  const zalo = hotel.lienHe?.zalo ?? hotel.zalo;
+  const amenities = hotel.tienIchNoiBat
+    ? hotel.tienIchNoiBat.map((t) => (typeof t === 'string' ? t : t.tenTienIch))
+    : (hotel.amenities || []);
 
   return (
     <div className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col">
@@ -28,13 +28,6 @@ export const HotelCard = ({ hotel }) => {
             Chưa có hình ảnh
           </div>
         )}
-        <span className="absolute top-3 left-3 bg-black/75 backdrop-blur-xs text-white text-xs px-2.5 py-1 rounded-full font-medium">
-          {type}
-        </span>
-        <span className="absolute top-3 right-3 bg-white/95 backdrop-blur-xs text-black text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 shadow-xs">
-          <Star size={12} className="fill-[#D97706] text-[#D97706]" />
-          {rating}
-        </span>
       </div>
 
       {/* CONTENT */}
@@ -68,35 +61,38 @@ export const HotelCard = ({ hotel }) => {
         <div className="pt-3 border-t border-[#CBD5E1]/60 flex items-center justify-between">
           <div>
             <span className="text-xs text-[#64748B] block">Giá từ:</span>
-            <span className="font-bold text-base text-black">{formatCurrency(minPrice)}</span>
+            <div className="text-sm font-bold text-black">
+              {formatCurrency(minPrice)}
+              <span className="text-xs font-normal text-[#64748B]"> /đêm</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {phone && (
               <a
                 href={`tel:${phone}`}
-                title="Gọi điện"
-                className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8]"
+                title={`Gọi ${phone}`}
+                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
               >
                 <Phone size={14} />
               </a>
             )}
             {zalo && (
               <a
-                href={`https://zalo.me/${zalo}`}
+                href={zalo.startsWith('http') ? zalo : `https://zalo.me/${zalo.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
-                title="Chat Zalo"
-                className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8]"
+                title="Nhắn Zalo"
+                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
               >
                 <MessageSquare size={14} />
               </a>
             )}
             <Link
               to={`/hotel/${id}`}
-              className="px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-semibold hover:opacity-85 transition-opacity"
+              className="px-3 py-1.5 rounded-xl bg-black text-white text-xs font-semibold hover:bg-neutral-800 transition-colors"
             >
-              Xem chi tiết
+              Chi tiết
             </Link>
           </div>
         </div>
@@ -104,3 +100,5 @@ export const HotelCard = ({ hotel }) => {
     </div>
   );
 };
+
+export default HotelCard;
