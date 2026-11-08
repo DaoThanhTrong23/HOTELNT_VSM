@@ -1,7 +1,7 @@
 ---
 title: "Sửa 4 màn Host của Quân sau khi merge deverlop (Màn 11, 12, 13 + Hồ sơ)"
 description: "Gỡ chế độ báo thành công giả khi mất mạng (chỉ còn dữ liệu giả khi VITE_USE_MOCK=true), sửa lỗi bắt cứng 403/404, lý do từ chối bịa sẵn, danh mục tự đặt, chốt giá tối thiểu 50.000 theo SRS, bổ sung test còn thiếu và xuất danh sách sửa file test case."
-status: in-progress
+status: completed
 priority: P1
 effort: 10h
 branch: feature/quan-dashbds
@@ -55,7 +55,7 @@ Plan này sửa các vấn đề ghi trong báo cáo [`plans/reports/261108-1316
 
 ## Bước 0: báo Trọng (việc của Quân, không phải code)
 
-- [ ] Gửi Trọng tin nhắn dưới đây. **Nên gửi trước Phase 1, bắt buộc trước khi push.**
+- [x] Gửi Trọng tin nhắn dưới đây. **Nên gửi trước Phase 1, bắt buộc trước khi push.** _(2026-11-08: Quân chọn không nhắn riêng. Nội dung tin nhắn được đưa vào mô tả PR vào `deverlop` để Trọng tự đọc.)_
 
 > Trọng ơi, mình sắp sửa lại phần form Thêm/Cập nhật CSLT trong `src/pages/host/` mà Trọng thêm ở `a27dec5` và `eb1af0a`:
 > 1. Dữ liệu giả khi mất mạng (tạo/lưu/gửi duyệt/rút lại/upload/xóa ảnh) chuyển sang `src/pages/host/api/hostMockApi.js`. Dữ liệu này **chỉ chạy khi `VITE_USE_MOCK=true`**, giống `listingService`. Khi không bật mock mà mất mạng thì form báo lỗi theo SRS, không báo "đã lưu" nữa. Bộ CSLT mẫu giữ nguyên: 1 Đã duyệt, 2 Bị từ chối, 3 Chờ duyệt, 4 Bị ẩn, 5 Bản nháp, thêm 6 là CSLT của Host khác (403). Bỏ `?status=` và `?mock=`.
@@ -158,7 +158,7 @@ Không đụng: `HostDashboardPage.jsx`, `HostProfilePage.jsx`, `ListingAccessSt
 - [x] `npm run build` qua, và có chunk riêng `hostMockApi-*.js`. Dữ liệu mock không nằm trong `index-*.js`. _Đo bằng chuỗi chỉ có trong mock: `"Sea Breeze"` vẫn có trong `index-*.js` vì placeholder "Ví dụ: Sea Breeze Homestay" ở `BasicInfoStep.jsx` (có từ trước merge). Chi tiết ở Phase 2._
 - [x] `git diff --name-only 23ae700 -- . ':!plans'` chỉ liệt kê file trong `src/pages/host/` (file mới chưa track: `api/hostMockApi.js`, `__tests__/hostMockApi.test.jsx`).
 - [x] `test-case-change-list.md` phủ đủ B1, B2, B3, B4 của báo cáo, cùng các dòng RTM và dòng tiêu đề tab Host bị ảnh hưởng (27 case mới; 2 file xlsx không đổi `shasum`).
-- [ ] Bước 0 đã đánh dấu trước khi push.
+- [x] Bước 0 đã đánh dấu trước khi push (qua mô tả PR, xem ghi chú ở Bước 0).
 
 ## Lệnh kiểm sau mỗi phase
 
