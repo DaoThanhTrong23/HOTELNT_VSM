@@ -78,8 +78,14 @@ describe('listingFormModel', () => {
   });
 
   it('MODEL-05: price must be within priceRange', () => {
-    expect(validateStep(2, filled({ gia: 400000 }), OPTIONS).gia).toBe('Giá phải từ 500.000 đến 100.000.000 VNĐ');
+    // Default when /filter-options sends no priceRange: SRS FR-17, 50.000 – 100.000.000.
+    expect(resolveOptions().priceRange).toEqual({ min: 50_000, max: 100_000_000 });
+    expect(validateStep(2, filled({ gia: 40000 }), OPTIONS).gia).toBe('Giá phải từ 50.000 đến 100.000.000 VNĐ');
+    expect(validateStep(2, filled({ gia: 400000 }), OPTIONS)).toEqual({});
     expect(validateStep(2, filled({ gia: 350000 }), resolveOptions({ priceRange: { giaMin: 50000, giaMax: 1000000 } }))).toEqual({});
+    expect(validateStep(2, filled({ gia: 400000 }), resolveOptions({ priceRange: { giaMin: 500000, giaMax: 1000000 } })).gia).toBe(
+      'Giá phải từ 500.000 đến 1.000.000 VNĐ',
+    );
     expect(validateStep(2, filled({ gia: '' }), OPTIONS)).toEqual({});
   });
 
@@ -125,7 +131,7 @@ describe('listingFormModel', () => {
 
     const complete = computeChecklist(toFormValues(DETAIL), { soAnh: 3 }, OPTIONS);
     expect(complete).toEqual(Object.fromEntries(CHECKLIST_ITEMS.map((item) => [item.key, true])));
-    expect(computeChecklist({ ...toFormValues(DETAIL), gia: 350000 }, { soAnh: 3 }, OPTIONS).gia).toBe(false);
+    expect(computeChecklist({ ...toFormValues(DETAIL), gia: 40000 }, { soAnh: 3 }, OPTIONS).gia).toBe(false);
     expect(computeChecklist(toFormValues(DETAIL), { soAnh: 2 }, OPTIONS).anhToiThieu3).toBe(false);
   });
 

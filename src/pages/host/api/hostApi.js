@@ -1,5 +1,6 @@
 import axios from 'axios';
 import axiosClient from '../../../services/axiosClient';
+import { USE_MOCK } from '../../../mocks/mockListings';
 
 // Endpoints used by the Host screens (dashboard, add/edit listing, profile).
 // Contract source: docs/Copy of API_DESIGN.xlsx, sheets "API Design" and "Error Format".
@@ -135,6 +136,10 @@ const call = async (send) => {
 // Async wrapper so id validation errors reject instead of throwing synchronously.
 const withListingId = async (maCSLT, send) => send(requireId(maCSLT, 'cơ sở'));
 
+// VITE_USE_MOCK=true: the listing form runs on in-memory data (hostMockApi.js).
+// Loaded with import() so the mock stays out of the main bundle.
+const viaMock = (name, ...args) => import('./hostMockApi').then(({ hostMockApi }) => hostMockApi[name](...args));
+
 const LISTING_KEYS = [
   'tenCSLT',
   'maLoai',
@@ -196,19 +201,28 @@ export const getHostListings = ({ trangThai, keyword, page, limit } = {}, { sign
 };
 
 export const getHostListingDetail = (maCSLT, { signal } = {}) =>
-  withListingId(maCSLT, (id) => call(() => axiosClient.get(`/host/listings/${id}`, { signal })));
+  withListingId(maCSLT, (id) =>
+    USE_MOCK ? viaMock('getHostListingDetail', id) : call(() => axiosClient.get(`/host/listings/${id}`, { signal })),
+  );
 
 export const createHostListing = (payload) =>
-  call(() => axiosClient.post('/host/listings', pickListingBody(payload)));
+  USE_MOCK
+    ? viaMock('createHostListing', pickListingBody(payload))
+    : call(() => axiosClient.post('/host/listings', pickListingBody(payload)));
 
 export const updateHostListing = (maCSLT, payload) =>
-  withListingId(maCSLT, (id) => call(() => axiosClient.put(`/host/listings/${id}`, pickListingBody(payload))));
+  withListingId(maCSLT, (id) =>
+    USE_MOCK
+      ? viaMock('updateHostListing', id, pickListingBody(payload))
+      : call(() => axiosClient.put(`/host/listings/${id}`, pickListingBody(payload))),
+  );
 
 export const uploadListingMedia = (maCSLT, { file, type }, { onProgress, signal } = {}) =>
   withListingId(maCSLT, (id) => {
     if (type !== 'IMAGE' && type !== 'VIDEO') {
       throw new ApiError({ code: 'VALIDATION_ERROR', message: 'Loại tệp phải là IMAGE hoặc VIDEO.' });
     }
+    if (USE_MOCK) return viaMock('uploadListingMedia', id, { file, type }, { onProgress });
     const form = new FormData();
     form.append('file', file);
     form.append('type', type);
@@ -228,16 +242,22 @@ export const uploadListingMedia = (maCSLT, { file, type }, { onProgress, signal 
 export const deleteListingMedia = (maCSLT, mediaId) =>
   withListingId(maCSLT, (id) => {
     const media = requireId(mediaId, 'ảnh/video');
+    if (USE_MOCK) return viaMock('deleteListingMedia', id, media);
     return call(() => axiosClient.delete(`/host/listings/${id}/media/${media}`));
   });
 
 export const submitListingForReview = (maCSLT) =>
-  withListingId(maCSLT, (id) => call(() => axiosClient.post(`/host/listings/${id}/submit-review`)));
+  withListingId(maCSLT, (id) =>
+    USE_MOCK ? viaMock('submitListingForReview', id) : call(() => axiosClient.post(`/host/listings/${id}/submit-review`)),
+  );
 
 export const withdrawListing = (maCSLT) =>
-  withListingId(maCSLT, (id) => call(() => axiosClient.post(`/host/listings/${id}/withdraw`)));
+  withListingId(maCSLT, (id) =>
+    USE_MOCK ? viaMock('withdrawListing', id) : call(() => axiosClient.post(`/host/listings/${id}/withdraw`)),
+  );
 
 export const deleteHostListing = (maCSLT) =>
   withListingId(maCSLT, (id) => call(() => axiosClient.delete(`/host/listings/${id}`)));
 
-export const getFilterOptions = ({ signal } = {}) => call(() => axiosClient.get('/filter-options', { signal }));
+export const getFilterOptions = ({ signal } = {}) =>
+  USE_MOCK ? viaMock('getFilterOptions') : call(() => axiosClient.get('/filter-options', { signal }));
