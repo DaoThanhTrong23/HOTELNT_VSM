@@ -227,4 +227,91 @@ describe('MediaStep', () => {
     expect(screen.getByText('gioi-thieu-homestay.mp4 · 48MB')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Hủy tải gioi-thieu-homestay.mp4' })).toHaveTextContent('Hủy');
   });
+
+  it('MED-13: a network error on upload marks the item as failed', async () => {
+    const onUploaded = vi.fn();
+    uploadListingMedia.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+    render(<Harness onUploaded={onUploaded} />);
+    chooseImages([makeFile('a.jpg', 'image/jpeg')]);
+
+    expect(
+      await screen.findByText('Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối và thử lại.'),
+    ).toBeInTheDocument();
+    expect(onUploaded).not.toHaveBeenCalled();
+    expect(screen.queryAllByTestId('server-image')).toHaveLength(0);
+    expect(screen.getByText('0/100 ảnh')).toBeInTheDocument();
+  });
+
+  it('MED-14: a network error on delete keeps the image and reports an error', async () => {
+    const onDeleted = vi.fn();
+    const onNotify = vi.fn();
+    deleteListingMedia.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+    render(
+      <Harness
+        initialMedia={[image(7, 1), image(8, 2), image(9, 3), image(10, 4)]}
+        initialCounts={{ soAnh: 4, soVideo: 0 }}
+        onDeleted={onDeleted}
+        onNotify={onNotify}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa ảnh 1' }));
+
+    await waitFor(() => expect(onNotify).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' })));
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId('server-image')).toHaveLength(4);
+  });
+
+  it('MED-15: a server MEDIA_LIMIT_EXCEEDED fails that item and the queue continues', async () => {
+    uploadListingMedia
+      .mockRejectedValueOnce(
+        new ApiError({
+          status: 400,
+          code: 'MEDIA_LIMIT_EXCEEDED',
+          message: 'Vượt quá số lượng cho phép: tối đa 100 ảnh và 5 video cho mỗi cơ sở.',
+        }),
+      )
+      .mockResolvedValueOnce({ ...image(100, 1), soAnh: 1, soVideo: 0 });
+    render(<Harness />);
+    chooseImages([makeFile('a.jpg', 'image/jpeg'), makeFile('b.jpg', 'image/jpeg')]);
+
+    expect(await screen.findByText('Vượt quá số lượng cho phép: tối đa 100 ảnh và 5 video cho mỗi cơ sở.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByTestId('server-image')).toHaveLength(1));
+    expect(uploadListingMedia).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Đã dừng tải lên.')).not.toBeInTheDocument();
+  });
+
+  it('MED-16: blocks video upload at 5 videos and rejects extra files on the client', async () => {
+    const { unmount } = render(<Harness initialCounts={{ soAnh: 3, soVideo: 5 }} />);
+    expect(screen.getByRole('button', { name: '+ Tải video lên' })).toBeDisabled();
+    expect(screen.getByLabelText('Chọn video từ máy')).toBeDisabled();
+    unmount();
+
+    uploadListingMedia.mockReturnValue(new Promise(() => {}));
+    render(<Harness initialCounts={{ soAnh: 3, soVideo: 4 }} />);
+    chooseVideos([makeFile('mot.mp4', 'video/mp4', MB), makeFile('hai.mp4', 'video/mp4', MB)]);
+
+    expect(await screen.findByText('Vượt quá giới hạn 5 video')).toBeInTheDocument();
+    await waitFor(() => expect(uploadListingMedia).toHaveBeenCalledTimes(1));
+    expect(uploadListingMedia.mock.calls[0][1].file.name).toBe('mot.mp4');
+  });
+
+  it('MED-17: drag and drop reorders images locally without calling the API', () => {
+    render(<Harness initialMedia={[image(7, 1), image(8, 2), image(9, 3)]} initialCounts={{ soAnh: 3, soVideo: 0 }} />);
+    const before = screen.getAllByTestId('server-image');
+
+    fireEvent.dragStart(before[2]);
+    fireEvent.dragOver(before[0]);
+    fireEvent.drop(before[0]);
+
+    const tiles = screen.getAllByTestId('server-image');
+    expect(tiles.map((tile) => within(tile).getByRole('img').getAttribute('src'))).toEqual([
+      'https://cdn.test/9.jpg',
+      'https://cdn.test/7.jpg',
+      'https://cdn.test/8.jpg',
+    ]);
+    expect(within(tiles[0]).getByText('Ảnh bìa')).toBeInTheDocument();
+    expect(uploadListingMedia).not.toHaveBeenCalled();
+    expect(deleteListingMedia).not.toHaveBeenCalled();
+  });
 });

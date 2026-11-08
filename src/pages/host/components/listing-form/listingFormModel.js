@@ -9,7 +9,7 @@ export const STEPS = [
   { id: 4, label: 'Bản đồ' },
 ];
 
-// Defaults when /filter-options does not send limits (values from API_DESIGN.xlsx and SRS FR-17).
+// Defaults when /filter-options does not send limits. Price follows SRS FR-17; the API overrides it with priceRange.
 export const DEFAULT_PRICE_RANGE = { min: 50_000, max: 100_000_000 };
 export const DEFAULT_MAP_BOUNDS = {
   latMin: NHA_TRANG_MAP_BOUNDS.LAT_MIN,
@@ -17,52 +17,6 @@ export const DEFAULT_MAP_BOUNDS = {
   lngMin: NHA_TRANG_MAP_BOUNDS.LNG_MIN,
   lngMax: NHA_TRANG_MAP_BOUNDS.LNG_MAX,
 };
-
-export const DEFAULT_PROPERTY_TYPES = [
-  { maLoai: 1, tenLoai: 'Khách sạn' },
-  { maLoai: 2, tenLoai: 'Homestay' },
-  { maLoai: 3, tenLoai: 'Resort' },
-  { maLoai: 4, tenLoai: 'Căn hộ du lịch' },
-  { maLoai: 5, tenLoai: 'Nhà nghỉ' },
-  { maLoai: 6, tenLoai: 'Villa' },
-];
-
-export const DEFAULT_WARDS = [
-  { maPhuong: 1, tenPhuong: 'Lộc Thọ' },
-  { maPhuong: 2, tenPhuong: 'Vạn Thạnh' },
-  { maPhuong: 3, tenPhuong: 'Vĩnh Hải' },
-  { maPhuong: 4, tenPhuong: 'Vĩnh Hòa' },
-  { maPhuong: 5, tenPhuong: 'Vĩnh Phước' },
-  { maPhuong: 6, tenPhuong: 'Vĩnh Thọ' },
-  { maPhuong: 7, tenPhuong: 'Phước Hải' },
-  { maPhuong: 8, tenPhuong: 'Tân Lập' },
-  { maPhuong: 9, tenPhuong: 'Phước Tân' },
-  { maPhuong: 10, tenPhuong: 'Phương Sài' },
-  { maPhuong: 11, tenPhuong: 'Xương Huân' },
-  { maPhuong: 12, tenPhuong: 'Vạn Thắng' },
-  { maPhuong: 13, tenPhuong: 'Phước Hòa' },
-  { maPhuong: 14, tenPhuong: 'Phước Tiến' },
-];
-
-export const DEFAULT_AMENITIES = [
-  { maTienIch: 1, tenTienIch: 'Wifi miễn phí' },
-  { maTienIch: 2, tenTienIch: 'Hồ bơi vô cực' },
-  { maTienIch: 3, tenTienIch: 'Giáp biển' },
-  { maTienIch: 4, tenTienIch: 'Bãi đỗ xe ô tô' },
-  { maTienIch: 5, tenTienIch: 'Điều hòa nhiệt độ' },
-  { maTienIch: 6, tenTienIch: 'Buffet sáng' },
-  { maTienIch: 7, tenTienIch: 'Thang máy' },
-  { maTienIch: 8, tenTienIch: 'Lễ tân 24/7' },
-  { maTienIch: 9, tenTienIch: 'Dọn phòng hàng ngày' },
-  { maTienIch: 10, tenTienIch: 'Phòng gym / Fitness' },
-];
-
-export const DEFAULT_NEARBY_PLACES = [
-  { maTienIch: 101, tenTienIch: 'Gần bãi biển' },
-  { maTienIch: 102, tenTienIch: 'Gần chợ Đầm' },
-  { maTienIch: 103, tenTienIch: 'Gần Vinpearl Harbour' },
-  { maTienIch: 104, tenTienIch: 'Gần Tháp Bà Ponagar' },
-];
 
 export const NAME_MAX_LENGTH = 150;
 export const ADDRESS_MAX_LENGTH = 200;
@@ -88,16 +42,11 @@ const finiteOr = (value, fallback) => (Number.isFinite(value) ? value : fallback
 export const resolveOptions = (filterOptions = {}) => {
   const priceRange = filterOptions?.priceRange ?? {};
   const mapBounds = filterOptions?.mapBounds ?? {};
-  const wards = list(filterOptions?.wards);
-  const propertyTypes = list(filterOptions?.propertyTypes);
-  const amenities = list(filterOptions?.amenities);
-  const nearbyPlaces = list(filterOptions?.nearbyPlaces);
-
   return {
-    wards: wards.length > 0 ? wards : DEFAULT_WARDS,
-    propertyTypes: propertyTypes.length > 0 ? propertyTypes : DEFAULT_PROPERTY_TYPES,
-    amenities: amenities.length > 0 ? amenities : DEFAULT_AMENITIES,
-    nearbyPlaces: nearbyPlaces.length > 0 ? nearbyPlaces : DEFAULT_NEARBY_PLACES,
+    wards: list(filterOptions?.wards),
+    propertyTypes: list(filterOptions?.propertyTypes),
+    amenities: list(filterOptions?.amenities),
+    nearbyPlaces: list(filterOptions?.nearbyPlaces),
     priceRange: {
       min: finiteOr(priceRange.giaMin, DEFAULT_PRICE_RANGE.min),
       max: finiteOr(priceRange.giaMax, DEFAULT_PRICE_RANGE.max),
@@ -369,126 +318,3 @@ export const checklistKeysFromDetails = (details) =>
 
 export const fieldId = (path) => `listing-${path.replace(/\./g, '-')}`;
 export const errorId = (path) => `${fieldId(path)}-error`;
-
-// Smart mock generator for preview & offline testing with zero backend dependencies
-export const getMockListingDetail = (maCSLT, requestedStatus) => {
-  const id = Number(maCSLT) || 1;
-  const statusUpper = requestedStatus ? requestedStatus.toUpperCase() : null;
-
-  let targetStatus = 'APPROVED';
-  if (statusUpper) {
-    targetStatus = statusUpper;
-  } else if (id === 2) {
-    targetStatus = 'REJECTED';
-  } else if (id === 3) {
-    targetStatus = 'PENDING';
-  } else if (id === 4) {
-    targetStatus = 'HIDDEN';
-  } else if (id === 5) {
-    targetStatus = 'DRAFT';
-  }
-
-  const isRejectedOrHidden = targetStatus === 'REJECTED' || targetStatus === 'HIDDEN';
-  const hotelName = isRejectedOrHidden ? 'Trần Phú Central Hotel' : 'Sea Breeze Homestay';
-  const address = isRejectedOrHidden ? '45 Trần Phú' : '12 Trần Phú';
-  const propertyType = isRejectedOrHidden ? 1 : 2; // 1: Khách sạn, 2: Homestay
-  const price = isRejectedOrHidden ? 850000 : 650000;
-  const description = isRejectedOrHidden
-    ? 'Khách sạn 3 sao trung tâm thành phố.'
-    : 'Homestay 8 phòng cách biển 2 phút đi bộ, có ban công nhìn ra biển.';
-  const contact = isRejectedOrHidden
-    ? { soDienThoai: '0258 3812 345', zalo: '0258 3812 345', facebook: 'https://facebook.com/tranphucentral' }
-    : { soDienThoai: '0905 123 456', zalo: 'zalo.me/0905123456', facebook: 'https://facebook.com/seabreezehomestay' };
-  const amenities = isRejectedOrHidden ? [1, 5, 7, 8] : [1, 2, 3];
-  const lat = isRejectedOrHidden ? 12.2415 : 12.2388;
-  const lng = isRejectedOrHidden ? 109.195 : 109.1967;
-
-  const allowedActions =
-    targetStatus === 'APPROVED'
-      ? ['PREVIEW', 'EDIT']
-      : targetStatus === 'PENDING'
-      ? ['PREVIEW', 'WITHDRAW']
-      : targetStatus === 'REJECTED'
-      ? ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE']
-      : targetStatus === 'HIDDEN'
-      ? ['PREVIEW', 'EDIT', 'SUBMIT']
-      : ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE'];
-
-  return {
-    maCSLT: id,
-    tenCSLT: hotelName,
-    maLoai: propertyType,
-    tenLoai: propertyType === 1 ? 'Khách sạn' : 'Homestay',
-    maPhuong: 1,
-    tenPhuong: 'Lộc Thọ',
-    diaChiChiTiet: address,
-    moTa: description,
-    lienHe: contact,
-    gia: price,
-    maTienIch: amenities,
-    latitude: lat,
-    longitude: lng,
-    trangThai: targetStatus,
-    ngayTao: '2026-09-01T08:00:00Z',
-    ngayCapNhat: '2026-09-24T14:30:00Z',
-    ngayGuiDuyet: targetStatus === 'PENDING' ? '2026-09-24T15:00:00Z' : null,
-    lyDoTuChoi:
-      targetStatus === 'REJECTED'
-        ? 'Ảnh bìa không đúng với cơ sở và địa chỉ chưa khớp với vị trí ghim trên bản đồ. Vui lòng sửa rồi gửi kiểm duyệt lại.'
-        : null,
-    lyDoViPham:
-      targetStatus === 'HIDDEN'
-        ? 'Phát hiện vi phạm tiêu chuẩn cộng đồng về thông tin liên hệ. Vui lòng sửa lại để được xem xét hiển thị.'
-        : null,
-    soAnh: 4,
-    soVideo: 1,
-    media: [
-      {
-        mediaId: 101,
-        type: 'IMAGE',
-        url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600',
-        isCover: true,
-        thuTu: 1,
-      },
-      {
-        mediaId: 102,
-        type: 'IMAGE',
-        url: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=600',
-        isCover: false,
-        thuTu: 2,
-      },
-      {
-        mediaId: 103,
-        type: 'IMAGE',
-        url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600',
-        isCover: false,
-        thuTu: 3,
-      },
-      {
-        mediaId: 104,
-        type: 'IMAGE',
-        url: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600',
-        isCover: false,
-        thuTu: 4,
-      },
-      {
-        mediaId: 105,
-        type: 'VIDEO',
-        url: 'https://example.com/video.mp4',
-        tenFile: 'gioi-thieu-homestay.mp4',
-        dungLuong: 48 * 1024 * 1024,
-        thuTu: 5,
-      },
-    ],
-    checklistGuiDuyet: {
-      ten: true,
-      diaChi: true,
-      phuong: true,
-      toaDo: true,
-      anhToiThieu3: true,
-      tienIchToiThieu1: true,
-      gia: true,
-    },
-    allowedActions,
-  };
-};

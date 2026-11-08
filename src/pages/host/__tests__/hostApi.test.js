@@ -22,6 +22,9 @@ import {
   withdrawListing,
 } from '../api/hostApi';
 
+// A local .env with VITE_USE_MOCK=true must not send these contract tests to the mock.
+vi.mock('../../../mocks/mockListings', () => ({ USE_MOCK: false }));
+
 vi.mock('../../../services/axiosClient', () => ({
   default: {
     get: vi.fn(),
