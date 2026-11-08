@@ -197,6 +197,23 @@ export const mockListingApi = {
     if (!l) throw notFound();
     return toPreview(l, location);
   },
+  getMapMarkers: async () => {
+    await delay(200);
+    return LISTINGS.map((l) => ({
+      maCSLT: l.maCSLT,
+      id: l.maCSLT,
+      tenCSLT: l.tenCSLT,
+      name: l.tenCSLT,
+      tenLoai: l.tenLoai,
+      type: l.tenLoai,
+      gia: l.gia,
+      price: l.gia,
+      latitude: l.latitude,
+      longitude: l.longitude,
+      top: 30 + ((l.maCSLT * 17) % 45),
+      left: 20 + ((l.maCSLT * 23) % 60),
+    }));
+  },
   search: async ({
     keyword = '',
     loaiHinh,

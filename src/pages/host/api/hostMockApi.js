@@ -249,4 +249,90 @@ export const hostMockApi = {
     listing.ngayCapNhat = now();
     return { maCSLT, trangThai: listing.trangThai };
   },
+
+  async deleteHostListing(maCSLT) {
+    const listing = findOwned(maCSLT);
+    if (![HOTEL_STATUS.DRAFT, HOTEL_STATUS.REJECTED].includes(listing.trangThai)) {
+      throw new ApiError({ status: 409, code: 'LISTING_NOT_DELETABLE' });
+    }
+    listings.delete(maCSLT);
+    return { message: 'Đã xóa cơ sở lưu trú thành công.' };
+  },
+
+  async getHostListings({ trangThai, keyword, page = 1, limit = 10 } = {}) {
+    let all = Array.from(listings.values());
+
+    if (trangThai && trangThai !== 'ALL') {
+      all = all.filter((l) => l.trangThai === trangThai);
+    }
+
+    if (keyword) {
+      const kw = keyword.toLowerCase().trim();
+      all = all.filter((l) => (l.tenCSLT || '').toLowerCase().includes(kw));
+    }
+
+    const totalItems = all.length;
+    const currentPage = Number(page) || 1;
+    const pageSize = Number(limit) || 10;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const offset = (currentPage - 1) * pageSize;
+    const paged = all.slice(offset, offset + pageSize);
+
+    const items = paged.map((l) => {
+      const loai = FILTER_OPTIONS.propertyTypes.find((p) => p.maLoai === l.maLoai);
+      const phuong = FILTER_OPTIONS.wards.find((w) => w.maPhuong === l.maPhuong);
+      const firstImg = l.media?.find((m) => m.type === 'IMAGE')?.url || PHOTOS[0];
+      return {
+        maCSLT: l.maCSLT,
+        tenCSLT: l.tenCSLT,
+        tenLoai: loai?.tenLoai || 'Homestay',
+        tenPhuong: phuong?.tenPhuong || 'Lộc Thọ',
+        gia: l.gia ?? null,
+        duongDanAnh: firstImg,
+        trangThai: l.trangThai,
+        lyDoTuChoi: l.lyDoTuChoi || null,
+        lyDoViPham: l.lyDoViPham || null,
+        ngayTao: l.ngayTao,
+        ngayCapNhat: l.ngayCapNhat,
+        allowedActions: FALLBACK_ACTIONS[l.trangThai] || [],
+      };
+    });
+
+    return {
+      items,
+      pagination: {
+        totalItems,
+        totalPages,
+        currentPage,
+        limit: pageSize,
+      },
+    };
+  },
+
+  async getHostProfile() {
+    return clone(mockHostProfile);
+  },
+
+  async updateHostProfile(changes = {}) {
+    Object.assign(mockHostProfile, clone(changes));
+    return clone(mockHostProfile);
+  },
+
+  async changeHostPassword({ oldPassword, newPassword } = {}) {
+    if (!oldPassword || oldPassword === 'wrong') {
+      throw new ApiError({ status: 400, code: 'OLD_PASSWORD_INCORRECT' });
+    }
+    return { message: 'Đổi mật khẩu thành công.' };
+  },
+};
+
+const mockHostProfile = {
+  id: 1,
+  email: 'host.seabreeze@hotelnt.vn',
+  cccd: '079090012345',
+  hoTen: 'Chủ cơ sở HotelNT',
+  soDienThoai: '0905123456',
+  vaiTro: 'HOST',
+  trangThai: 'ACTIVE',
+  ngayTao: '2026-08-01T08:00:00Z',
 };

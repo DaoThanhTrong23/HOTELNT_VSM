@@ -1,19 +1,48 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Navigation } from 'lucide-react';
 import { MAP_PINS } from '../../data/mockHotels';
+import { listingService } from '../../services/listingService';
 
 /**
- * Component MapSection hiển thị bản đồ định vị các cơ sở lưu trú (theo Figma Tourist/Home)
- * Khi BE/Maps API sẵn sàng, có thể hoán đổi ruột bên trong mà không ảnh hưởng HomePage
+ * Component MapSection hiển thị bản đồ định vị các cơ sở lưu trú (theo Figma Tourist/Home & SRS FR-05, API Row 4)
+ * Gọi API GET /listings/map-markers với fallback về MAP_PINS
  */
-export const MapSection = ({ pins = MAP_PINS, onPinClick }) => {
+export const MapSection = ({ pins: initialPins, onPinClick }) => {
   const navigate = useNavigate();
+  const [markers, setMarkers] = useState(initialPins || MAP_PINS);
+
+  useEffect(() => {
+    if (initialPins) {
+      setMarkers(initialPins);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchMarkers = async () => {
+      try {
+        const res = await listingService.getMapMarkers();
+        const data = res?.items || res?.data || (Array.isArray(res) ? res : []);
+        if (isMounted && data.length > 0) {
+          setMarkers(data);
+        }
+      } catch (err) {
+        console.warn('Lỗi khi tải map markers từ listingService, fallback MAP_PINS:', err);
+      }
+    };
+
+    fetchMarkers();
+    return () => {
+      isMounted = false;
+    };
+  }, [initialPins]);
 
   const handlePinClick = (pin) => {
     if (onPinClick) {
       onPinClick(pin);
     } else {
-      navigate(`/hotel/${pin.id}`);
+      const pinId = pin.maCSLT || pin.id;
+      navigate(`/hotel/${pinId}`);
     }
   };
 
@@ -54,44 +83,56 @@ export const MapSection = ({ pins = MAP_PINS, onPinClick }) => {
       </div>
 
       {/* Map pins */}
-      {pins.map((pin) => (
-        <button
-          key={pin.id}
-          id={`map-pin-${pin.id}`}
-          type="button"
-          onClick={() => handlePinClick(pin)}
-          className="absolute group cursor-pointer"
-          style={{ left: `${pin.x}%`, top: `${pin.y}%`, transform: 'translate(-50%, -100%)' }}
-          title={pin.label}
-        >
-          {/* Pin icon */}
-          <div className="relative flex flex-col items-center">
-            <div className="w-9 h-9 rounded-full bg-black border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-              <MapPin size={16} className="text-white" fill="white" />
+      {markers.map((pin) => {
+        const pinId = pin.maCSLT || pin.id;
+        const pinName = pin.tenCSLT || pin.name;
+        const pinTop = pin.top ?? (30 + ((Number(pinId) * 17) % 45));
+        const pinLeft = pin.left ?? (20 + ((Number(pinId) * 23) % 60));
+
+        return (
+          <button
+            key={pinId}
+            id={`map-pin-${pinId}`}
+            type="button"
+            onClick={() => handlePinClick(pin)}
+            style={{ top: `${pinTop}%`, left: `${pinLeft}%` }}
+            className="absolute group transform -translate-x-1/2 -translate-y-1/2 cursor-pointer focus:outline-none z-10"
+          >
+            {/* Pin Icon */}
+            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center shadow-lg group-hover:scale-125 group-hover:bg-[#D97706] transition-all">
+              <MapPin size={16} />
             </div>
-            <div className="w-2 h-2 bg-black rotate-45 -mt-1 shadow" />
-          </div>
-          {/* Tooltip tên */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-black text-[11px] font-semibold rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-[#CBD5E1]">
-            {pin.label}
-          </div>
+
+            {/* Tooltip khi hover */}
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block whitespace-nowrap bg-black text-white text-xs px-2.5 py-1.5 rounded-lg shadow-xl pointer-events-none z-20">
+              <p className="font-bold">{pinName}</p>
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black" />
+            </div>
+          </button>
+        );
+      })}
+
+      {/* Nút chỉ đường / vị trí */}
+      <div className="absolute bottom-4 right-4 z-10">
+        <button
+          type="button"
+          onClick={() => {
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => alert(`Vị trí của bạn: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`),
+                () => alert('Không thể lấy vị trí hiện tại.')
+              );
+            }
+          }}
+          className="bg-white p-2.5 rounded-xl border border-[#CBD5E1] shadow-md hover:bg-[#F8F4E8] text-black transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+          title="Định vị của tôi"
+        >
+          <Navigation size={15} />
+          <span>Vị trí của tôi</span>
         </button>
-      ))}
-
-      {/* Nút vị trí của tôi */}
-      <button
-        id="my-location-btn"
-        type="button"
-        className="absolute bottom-4 right-4 w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center border border-[#CBD5E1] hover:bg-[#F8F4E8] transition-colors cursor-pointer"
-        title="Vị trí của tôi"
-      >
-        <Navigation size={18} className="text-[#1A73E8]" />
-      </button>
-
-      {/* Watermark Google Maps style */}
-      <div className="absolute bottom-2 left-3 text-[10px] text-[#9AA0A6]">
-        © 2026 Bản đồ Nha Trang – Dữ liệu mẫu
       </div>
     </div>
   );
 };
+
+export default MapSection;

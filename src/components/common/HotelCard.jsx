@@ -1,18 +1,23 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, MessageSquare } from 'lucide-react';
+import { MapPin, Phone } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { buildTelLink, buildZaloLink } from '../../utils/contactLinks';
+import { ZaloLogo } from '../common/icons/BrandIcons';
 
 export const HotelCard = ({ hotel }) => {
   if (!hotel) return null;
 
   const id = hotel.maCSLT ?? hotel.id;
   const name = hotel.tenCSLT ?? hotel.name;
-  const type = hotel.tenLoai ?? hotel.type ?? 'Khách sạn';
   const thumbnail = hotel.duongDanAnh ?? hotel.thumbnail ?? hotel.hinhAnh?.[0]?.url;
   const address = hotel.diaChiChiTiet ?? hotel.address;
   const minPrice = hotel.gia ?? hotel.minPrice;
-  const phone = hotel.lienHe?.soDienThoai ?? hotel.phone;
-  const zalo = hotel.lienHe?.zalo ?? hotel.zalo;
+  const rawPhone = hotel.lienHe?.soDienThoai ?? hotel.phone;
+  const rawZalo = hotel.lienHe?.zalo ?? hotel.zalo ?? rawPhone;
+
+  const telLink = buildTelLink(rawPhone);
+  const zaloLink = buildZaloLink(rawZalo);
+
   const amenities = hotel.tienIchNoiBat
     ? hotel.tienIchNoiBat.map((t) => (typeof t === 'string' ? t : t.tenTienIch))
     : (hotel.amenities || []);
@@ -68,24 +73,24 @@ export const HotelCard = ({ hotel }) => {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {phone && (
+            {telLink && (
               <a
-                href={`tel:${phone}`}
-                title={`Gọi ${phone}`}
-                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
+                href={telLink}
+                title={`Gọi ${rawPhone}`}
+                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
               >
                 <Phone size={14} />
               </a>
             )}
-            {zalo && (
+            {zaloLink && (
               <a
-                href={zalo.startsWith('http') ? zalo : `https://zalo.me/${zalo.replace(/\D/g, '')}`}
+                href={zaloLink}
                 target="_blank"
                 rel="noreferrer"
                 title="Nhắn Zalo"
-                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors"
+                className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
               >
-                <MessageSquare size={14} />
+                <ZaloLogo size={18} />
               </a>
             )}
             <Link

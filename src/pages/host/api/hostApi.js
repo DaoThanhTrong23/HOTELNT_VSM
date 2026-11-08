@@ -174,7 +174,8 @@ export const pickListingBody = (payload = {}) => {
 
 const PROFILE_KEYS = ['hoTen', 'soDienThoai'];
 
-export const getHostProfile = ({ signal } = {}) => call(() => axiosClient.get('/host/profile', { signal }));
+export const getHostProfile = ({ signal } = {}) =>
+  USE_MOCK ? viaMock('getHostProfile') : call(() => axiosClient.get('/host/profile', { signal }));
 
 export const updateHostProfile = async (changes = {}) => {
   const body = {};
@@ -184,13 +185,16 @@ export const updateHostProfile = async (changes = {}) => {
   if (Object.keys(body).length === 0) {
     throw new ApiError({ code: 'VALIDATION_ERROR', message: 'Không có thông tin nào để cập nhật.' });
   }
-  return call(() => axiosClient.patch('/host/profile', body));
+  return USE_MOCK ? viaMock('updateHostProfile', body) : call(() => axiosClient.patch('/host/profile', body));
 };
 
 export const changeHostPassword = ({ oldPassword, newPassword }) =>
-  call(() => axiosClient.post('/host/profile/change-password', { oldPassword, newPassword }));
+  USE_MOCK
+    ? viaMock('changeHostPassword', { oldPassword, newPassword })
+    : call(() => axiosClient.post('/host/profile/change-password', { oldPassword, newPassword }));
 
 export const getHostListings = ({ trangThai, keyword, page, limit } = {}, { signal } = {}) => {
+  if (USE_MOCK) return viaMock('getHostListings', { trangThai, keyword, page, limit });
   const params = {};
   if (trangThai && trangThai !== 'ALL') params.trangThai = trangThai;
   const trimmedKeyword = typeof keyword === 'string' ? keyword.trim() : '';
