@@ -139,10 +139,12 @@ Tổng: 3 Pass (mock), 8 Fail (mock), 0 Error. Giống nhau qua mọi lần ch�
 - Hai unit test trong `e2e/support/__tests__/` chạy ở môi trường `node` (`// @vitest-environment node`), vì config gốc dùng jsdom và `import.meta.url` không phải `file:`.
 - TDD: unit test soft-check và 8 spec Danh sách được viết trước, nhưng lần chạy đỏ chỉ làm cho Phase 1, smoke (thiếu `baseUrl`) và `sheet-rows`. Soft-check và page object Danh sách được viết ngay sau test, không chạy bước đỏ riêng.
 
-### Còn lại
+### Còn lại (cập nhật 2026-11-10)
 
-- `npx vitest run` (config gốc) có 1 test đỏ: `src/components/common/__tests__/StateComponents.test.jsx` ("renders ErrorModal popup…"). Test này đã đỏ trước plan (kiểm bằng `git stash`). File dùng chung, ngoài phạm vi nên không sửa.
-- Chưa chạy với backend thật (chưa có backend). Khi có, chạy lại theo `e2e/README.md` để đánh Pass chính thức.
+- Đã push 5 commit lên `origin/feature/quan-dashbds`. PR #3 vào `deverlop` đang mở cho cùng cặp nhánh, nên các commit này vào PR #3, không mở PR mới. Tiêu đề và mô tả PR #3 đã có thêm phần E2E.
+- `npx vitest run` (config gốc) có 1 test đỏ: `src/components/common/__tests__/StateComponents.test.jsx` ("renders ErrorModal popup…"), đỏ từ `085cf27`. Nguyên nhân: `ErrorModal` có 2 nút cùng tên "Đóng" (nút X có `aria-label="Đóng"` ở `ErrorState.jsx:85`, và nút chữ "Đóng"), nên `getByRole` tìm thấy 2 nút. Không ảnh hưởng màn Host: trang Host chỉ dùng `ErrorState` dạng nằm trong trang, không truyền `onClose`, và chưa trang nào dùng `ErrorModal`. Repo không có CI nên PR không bị chặn. File dùng chung nên để nguyên. Đã ghi lại trong mô tả PR #3.
+- Chưa chạy với backend thật. Lần thử ngày 2026-11-10: chế độ `E2E_TARGET=backend` hoạt động đúng (khi không có server thì 11 case báo `Error` "Không thể kết nối tới máy chủ"). Còn thiếu địa chỉ API (`api.hotelnt.com` chưa có bản ghi DNS, repo và các nhánh không ghi địa chỉ nào khác), token của tài khoản Host test, CORS cho `http://localhost:5199` và dữ liệu mẫu. Chi tiết ở mục "Chạy với backend" của `e2e/README.md`.
+- Kết quả mock chưa được dán vào Google Sheet (Quân tự dán). Ô `Notes` của 11 case đã có sẵn "Mức độ | Phụ trách | Yêu cầu", nên README đã đổi hướng dẫn để không dán đè.
 
 ## Red Team Review
 
