@@ -52,8 +52,11 @@ Theo quy ước ngày 08/11: chạy trên mock chỉ ghi `Pass (mock)`. Chỉ gh
 
 ### Dán vào Google Sheet
 
+Trong tab "TC - Host (Chủ cơ sở)", ô `Notes` của cả 11 case đã có sẵn "Mức độ | Phụ trách | Yêu cầu". **Không dán đè cột này.**
+
 1. Mở `host-results.csv` bằng Google Sheets (File → Import) hoặc Excel. File có BOM UTF-8 nên tiếng Việt hiển thị đúng.
-2. Copy các ô `Actual Result`, `Status`, `Notes`, dán vào cùng tên cột trong tab "TC - Host (Chủ cơ sở)", đúng dòng có mã ở cột `Test Case#`.
+2. Copy hai cột `Actual Result` và `Status`, dán vào cùng tên cột, đúng dòng có mã ở cột `Test Case#`. 11 case nằm ở 2 khối dòng riêng (TC_HDB_01–08 và TC_PRF_01–03), nên phải dán 2 lần.
+3. Thêm nội dung cột `Notes` của CSV vào sau nội dung có sẵn trong ô `Notes`, cách nhau bằng ` | `.
 
 ## Chạy với backend
 
@@ -62,7 +65,15 @@ E2E_TARGET=backend VITE_API_BASE_URL=https://<api>/api/v1 E2E_HOST_TOKEN=<jwt> \
   npx vitest run --config e2e/vitest.config.js
 ```
 
-Dùng **tài khoản test riêng**, không dùng tài khoản thật. Token chỉ đặt qua biến môi trường, không ghi vào file. Cần chuẩn bị dữ liệu:
+Dùng **tài khoản test riêng**, không dùng tài khoản thật. Token chỉ đặt qua biến môi trường, không ghi vào file.
+
+Cần có trước khi chạy:
+
+- **Địa chỉ API đang chạy**, đặt vào `VITE_API_BASE_URL`.
+- **Backend cho phép CORS từ `http://localhost:5199`.** Vite không có proxy, nên trình duyệt gọi thẳng vào API. Thiếu CORS thì trang báo "Không thể kết nối tới máy chủ", giống như khi không có server.
+- **Token còn hạn của tài khoản Host test.** Đăng nhập tài khoản đó trên app, rồi copy giá trị `token` trong Local Storage (DevTools → Application). Nếu token sai hoặc hết hạn, API trả 401. Khi đó app xóa phiên và chuyển về `/login` (`src/services/axiosClient.js`), nên cả 11 case báo `Error`.
+
+Cần chuẩn bị dữ liệu:
 
 - Ít nhất một cơ sở ở mỗi trạng thái: Bản nháp, Chờ duyệt, Đã duyệt, Bị từ chối, Ẩn. Cơ sở Bị từ chối nên có lý do từ chối.
 - Ít nhất một cơ sở có chữ "Breeze" trong tên (TC_HDB_03).
