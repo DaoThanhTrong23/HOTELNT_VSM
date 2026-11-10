@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { SoftCheckFailure, createSoftCheck, normalizeText, toHex } from '../soft-check.js';
 

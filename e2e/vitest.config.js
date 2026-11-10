@@ -13,6 +13,10 @@ export default defineConfig({
     testTimeout: 60000,
     // The first run downloads Chrome for Testing through Selenium Manager.
     hookTimeout: 180000,
-    reporters: ['default', ['json', { outputFile: 'e2e/reports/results.json' }]],
+    reporters: [
+      'default',
+      ['json', { outputFile: 'e2e/reports/results.json' }],
+      fileURLToPath(new URL('./support/sheet-reporter.js', import.meta.url)),
+    ],
   },
 });
