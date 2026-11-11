@@ -143,7 +143,13 @@ Tổng: 3 Pass (mock), 8 Fail (mock), 0 Error. Giống nhau qua mọi lần ch�
 
 - Đã push 5 commit lên `origin/feature/quan-dashbds`. PR #3 vào `deverlop` đang mở cho cùng cặp nhánh, nên các commit này vào PR #3, không mở PR mới. Tiêu đề và mô tả PR #3 đã có thêm phần E2E.
 - `npx vitest run` (config gốc) có 1 test đỏ: `src/components/common/__tests__/StateComponents.test.jsx` ("renders ErrorModal popup…"), đỏ từ `085cf27`. Nguyên nhân: `ErrorModal` có 2 nút cùng tên "Đóng" (nút X có `aria-label="Đóng"` ở `ErrorState.jsx:85`, và nút chữ "Đóng"), nên `getByRole` tìm thấy 2 nút. Không ảnh hưởng màn Host: trang Host chỉ dùng `ErrorState` dạng nằm trong trang, không truyền `onClose`, và chưa trang nào dùng `ErrorModal`. Repo không có CI nên PR không bị chặn. File dùng chung nên để nguyên. Đã ghi lại trong mô tả PR #3.
-- Chưa chạy với backend thật. Lần thử ngày 2026-11-10: chế độ `E2E_TARGET=backend` hoạt động đúng (khi không có server thì 11 case báo `Error` "Không thể kết nối tới máy chủ"). Còn thiếu địa chỉ API (`api.hotelnt.com` chưa có bản ghi DNS, repo và các nhánh không ghi địa chỉ nào khác), token của tài khoản Host test, CORS cho `http://localhost:5199` và dữ liệu mẫu. Chi tiết ở mục "Chạy với backend" của `e2e/README.md`.
+- Chưa chạy được với backend thật. Lần thử ngày 2026-11-10: chế độ `E2E_TARGET=backend` hoạt động đúng (khi không có server thì 11 case báo `Error` "Không thể kết nối tới máy chủ"). Chi tiết ở mục "Chạy với backend" của `e2e/README.md`.
+- Ngày 2026-11-11, backend đã lên Azure: `https://hotelnt-api-e4fhhvd8bvawfdec.eastasia-01.azurewebsites.net/api`, deploy từ nhánh `develop` của repo `TheHungrier/hotelnt-backend`. Không phải `api.hotelnt.com`, tên miền đó vẫn chưa có DNS.
+  - Đã chạy được: `/api/health` trả 200. Đường dẫn gốc là `/api`, không có `/v1`. CORS cho `http://localhost:5199` đã mở. Cả 10 đường dẫn Host mà FE gọi đều có ở backend. DB đã nạp seed.
+  - Chạy E2E vào Azure với token giả: 11 `Error` "Hệ thống đang gặp sự cố" (HTTP 500).
+  - Lỗi đang chặn: gửi bất kỳ token nào (sai định dạng hay sai chữ ký) cũng nhận 500 thay vì 401 `TOKEN_INVALID`. Nhiều khả năng Azure chưa đặt `APP_AUTH_JWT_SECRET` (cần ít nhất 32 byte), vì trong `AuthTokenService.verify` chỉ lỗi thiếu khóa (`IllegalStateException` ở `key()`) mới lọt qua khối `catch`. Nếu đúng vậy thì backend cũng không cấp được token nào.
+  - Còn thiếu: tài khoản Host trong seed dùng email `@hotelnt.local`, không nhận được OTP. Màn đăng nhập FE gọi `/auth/login` và `/auth/verify-otp`, còn backend dùng `/auth/signin` và `/auth/signin/verify`. Seed của host1 chỉ có 2 Đã duyệt, 1 Chờ duyệt, 1 Bị từ chối. Thiếu Bản nháp, Ẩn và cơ sở có chữ "Breeze".
+  - TC_HDB_06, TC_HDB_08 và TC_PRF_02 sẽ sửa dữ liệu dùng chung trên Azure.
 - Kết quả mock chưa được dán vào Google Sheet (Quân tự dán). Ô `Notes` của 11 case đã có sẵn "Mức độ | Phụ trách | Yêu cầu", nên README đã đổi hướng dẫn để không dán đè.
 
 ## Red Team Review
