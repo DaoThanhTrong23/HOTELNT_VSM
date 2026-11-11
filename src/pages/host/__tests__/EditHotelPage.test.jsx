@@ -67,9 +67,9 @@ const LocationProbe = () => {
   return <div data-testid="location-state">{JSON.stringify(location.state)}</div>;
 };
 
-const renderEdit = ({ id = '12', state } = {}) =>
+const renderEdit = ({ id = '12', search = '', state } = {}) =>
   render(
-    <MemoryRouter initialEntries={[{ pathname: `/host/hotels/${id}/edit`, state }]}>
+    <MemoryRouter initialEntries={[{ pathname: `/host/hotels/${id}/edit`, search, state }]}>
       <Routes>
         <Route path="/host/hotels/:id/edit" element={<EditHotelPage />} />
         <Route path="/host/dashboard" element={<div>Danh sách cơ sở</div>} />
@@ -313,5 +313,168 @@ describe('EditHotelPage', () => {
     expect(toast).toHaveTextContent('Đã gửi kiểm duyệt');
     expect(toast).toHaveTextContent('Cơ sở chuyển sang Chờ duyệt. Kết quả sẽ được gửi qua email.');
     await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent('null'));
+  });
+
+  it('EDIT-13: ids 403 and 404 and a ?mock= query still load the listing from the API', async () => {
+    const cases = [
+      { id: '403', search: '', expectedId: 403 },
+      { id: '404', search: '', expectedId: 404 },
+      { id: '12', search: '?mock=forbidden', expectedId: 12 },
+    ];
+    for (const { id, search, expectedId } of cases) {
+      vi.clearAllMocks();
+      getFilterOptions.mockResolvedValue(FILTER_OPTIONS);
+      getHostListingDetail.mockResolvedValue(listing({ maCSLT: expectedId }));
+      const { unmount } = renderEdit({ id, search });
+
+      await waitForTitle();
+      expect(getHostListingDetail).toHaveBeenCalledWith(expectedId, expect.anything());
+      expect(screen.queryByText('Bạn không có quyền quản lí cơ sở này')).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('EDIT-14: REJECTED and HIDDEN without a reason show "Không có ghi chú."', async () => {
+    getHostListingDetail.mockResolvedValue(
+      listing({ trangThai: 'REJECTED', lyDoTuChoi: null, allowedActions: ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE'] }),
+    );
+    const { unmount } = renderEdit();
+    await waitForTitle();
+    expect(screen.getByText('Quản trị viên đã từ chối cơ sở này')).toBeInTheDocument();
+    expect(screen.getByText('Lý do: Không có ghi chú.')).toBeInTheDocument();
+    unmount();
+
+    getHostListingDetail.mockResolvedValue(
+      listing({ trangThai: 'HIDDEN', lyDoViPham: null, allowedActions: ['PREVIEW', 'EDIT', 'SUBMIT'] }),
+    );
+    renderEdit();
+    await waitForTitle();
+    expect(screen.getByText('Quản trị viên đã ẩn cơ sở này')).toBeInTheDocument();
+    expect(screen.getByText('Lý do: Không có ghi chú.')).toBeInTheDocument();
+  });
+
+  it('EDIT-15: a network error on the detail shows ErrorState, not sample data, and retries', async () => {
+    getHostListingDetail.mockRejectedValueOnce(new ApiError({ code: 'NETWORK_ERROR' })).mockResolvedValueOnce(listing());
+    renderEdit();
+
+    expect(await screen.findByText('Không tải được dữ liệu')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByText('Sea Breeze Homestay')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    await waitForTitle();
+    expect(getHostListingDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it('EDIT-16: a network error on APPROVED save shows the save error and keeps the status', async () => {
+    getHostListingDetail.mockResolvedValue(listing());
+    updateHostListing.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+    renderEdit();
+    await waitForTitle();
+
+    fireEvent.change(nameInput(), { target: { value: 'Sea Breeze Homestay & Spa' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Vẫn lưu' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể lưu thông tin cơ sở lưu trú. Vui lòng kiểm tra kết nối và thử lại.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText('Đã duyệt')).toBeInTheDocument();
+    expect(screen.queryByText('Cơ sở đang chờ duyệt')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeEnabled();
+    expect(nameInput()).toHaveValue('Sea Breeze Homestay & Spa');
+  });
+
+  it('EDIT-17: a network error on resubmit shows an error and keeps REJECTED', async () => {
+    getHostListingDetail.mockResolvedValue(
+      listing({ trangThai: 'REJECTED', lyDoTuChoi: 'Sai địa chỉ.', allowedActions: ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE'] }),
+    );
+    submitListingForReview.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+    renderEdit();
+    await waitForTitle();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gửi kiểm duyệt lại' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể lưu thông tin cơ sở lưu trú. Vui lòng kiểm tra kết nối và thử lại.',
+    );
+    expect(screen.queryByText('Đã gửi kiểm duyệt')).not.toBeInTheDocument();
+    expect(screen.getByText('Bị từ chối')).toBeInTheDocument();
+    expect(screen.queryByText('Cơ sở đang chờ duyệt')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gửi kiểm duyệt lại' })).toBeEnabled();
+  });
+
+  it('EDIT-18: a network error on withdraw shows the error and keeps PENDING', async () => {
+    getHostListingDetail.mockResolvedValue(listing({ trangThai: 'PENDING', allowedActions: ['PREVIEW', 'WITHDRAW'] }));
+    withdrawListing.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+    renderEdit();
+    await waitForTitle();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rút lại yêu cầu' }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rút lại' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối và thử lại.',
+    );
+    expect(screen.queryByText('Đã rút lại yêu cầu kiểm duyệt. Cơ sở đã về Bản nháp.')).not.toBeInTheDocument();
+    expect(screen.getByText('Chờ duyệt')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở đang chờ duyệt')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Tên cơ sở lưu trú/)).not.toBeInTheDocument();
+  });
+
+  it('EDIT-19: DRAFT is editable and "Lưu nháp" saves without a confirmation', async () => {
+    getHostListingDetail.mockResolvedValue(listing({ trangThai: 'DRAFT', allowedActions: ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE'] }));
+    updateHostListing.mockResolvedValue({ maCSLT: 12, trangThai: 'DRAFT', thayDoiTrangThai: false });
+    renderEdit();
+    await waitForTitle();
+
+    expect(screen.getByText('Bản nháp')).toBeInTheDocument();
+    expect(screen.getByText(`Cập nhật lần cuối: ${formatDate('2026-09-24T08:00:00Z')}`)).toBeInTheDocument();
+    expect(screen.queryByText(/^Quản trị viên đã/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Cơ sở đang chờ duyệt')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gửi kiểm duyệt' })).toBeEnabled();
+
+    fireEvent.change(nameInput(), { target: { value: 'Sea Breeze Homestay 2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(updateHostListing).toHaveBeenCalledWith(12, expect.objectContaining({ tenCSLT: 'Sea Breeze Homestay 2' })),
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu thay đổi');
+  });
+
+  it('EDIT-20: APPROVED save that the server reports as unchanged shows "Không có thay đổi"', async () => {
+    getHostListingDetail.mockResolvedValue(listing());
+    updateHostListing.mockResolvedValue({ maCSLT: 12, trangThai: 'APPROVED', thayDoiTrangThai: false });
+    renderEdit();
+    await waitForTitle();
+
+    fireEvent.change(nameInput(), { target: { value: 'Sea Breeze Homestay & Spa' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Vẫn lưu' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Không có thay đổi');
+    expect(updateHostListing).toHaveBeenCalledTimes(1);
+  });
+
+  it('EDIT-21: images are shown in server thuTu order after loading', async () => {
+    getHostListingDetail.mockResolvedValue(listing({ media: [image(3), image(1), image(2)] }));
+    renderEdit();
+    await waitForTitle();
+
+    fireEvent.click(stepButton('Hình ảnh & video'));
+
+    const tiles = await screen.findAllByTestId('server-image');
+    expect(tiles.map((tile) => within(tile).getByRole('img').getAttribute('src'))).toEqual([
+      'https://cdn.test/1.jpg',
+      'https://cdn.test/2.jpg',
+      'https://cdn.test/3.jpg',
+    ]);
+    expect(within(tiles[0]).getByText('Ảnh bìa')).toBeInTheDocument();
   });
 });

@@ -41,7 +41,7 @@ Chưa có backend: `api.hotelnt.com` không phân giải DNS và dự án chưa 
 
 | # | Chỗ Figma lệch API | Quyết định |
 |---|---|---|
-| D1 | Giá: Figma có Giá từ / Giá đến / Chu kỳ, khoảng 50.000–100.000.000. API chỉ có `gia`, khoảng 500.000–100.000.000 | **Theo API:** form có 1 ô "Giá tham khảo", giới hạn lấy từ `priceRange` của `/filter-options` (mặc định 500.000–100.000.000). Dashboard hiện 1 mức giá |
+| D1 | Giá: Figma có Giá từ / Giá đến / Chu kỳ, khoảng 50.000–100.000.000. API chỉ có `gia`, khoảng 500.000–100.000.000 | **Theo API:** form có 1 ô "Giá tham khảo", giới hạn lấy từ `priceRange` của `/filter-options` (mặc định 500.000–100.000.000). Dashboard hiện 1 mức giá. **Cập nhật 2026-11-08 (Q2):** giá mặc định khi `/filter-options` không gửi `priceRange` đổi thành 50.000 theo SRS FR-17. Xem plan `261108-0632-host-screens-post-merge-fixes`. |
 | D2 | Hồ sơ: Figma có Giới tính, Ngày sinh. API và SRS không có | **Bỏ 2 trường này.** Phần còn lại theo Figma |
 | D3 | Ảnh: Figma cho "Kéo để đổi thứ tự", API không có endpoint sắp xếp | **Kéo thả chỉ trên giao diện:** đổi thứ tự cục bộ, không lưu lên server, tải lại trang sẽ về thứ tự `thuTu`. Ghi câu hỏi gửi BE |
 | D4 | Nav mobile (top bar, bottom nav) nằm trong layout dùng chung | **Để người phụ trách layout làm** |
@@ -138,7 +138,7 @@ Không đụng: các trang auth (Quỳnh), tourist (Thư, Giang), admin (Vỹ), 
 1. Body thành công có bọc `{ success, data }` không?
 2. Thêm `tenPhuong` vào item của `GET /host/listings` (bảng có cột Phường/Xã).
 3. Có API đếm số CSLT theo trạng thái không? Hiện phải gọi 5 lần với `limit=1`.
-4. Figma và SRS dùng khoảng giá (từ–đến + chu kỳ), API chỉ có `gia`. Team có muốn bổ sung không? FE đang theo API (D1).
+4. Figma và SRS dùng khoảng giá (từ–đến + chu kỳ), API chỉ có `gia`. Team có muốn bổ sung không? FE đang theo API (D1). FE mặc định 50.000 (SRS). Nếu BE giữ 500.000 thì trả `priceRange.giaMin = 500000` trong `/filter-options`.
 5. Cần API sắp xếp lại `thuTu` ảnh (D3).
 6. `GET /host/listings/:maCSLT` có trả `ngayGuiDuyet` không? Figma 13.3 hiện "Gửi kiểm duyệt ngày …".
 7. Quy tắc "ký tự đặc biệt" của mật khẩu: FE dùng `[^A-Za-z0-9\s]`.
@@ -150,7 +150,7 @@ Không đụng: các trang auth (Quỳnh), tourist (Thư, Giang), admin (Vỹ), 
 - **Sidebar:** đang đọc `user.name`, trong khi API trả `hoTen`.
 - **`src/services/`:** `hotelService.js` / `authService.js` sai path so với Excel; `axiosClient` chưa có refresh token.
 - **`Modal.jsx`:** chưa có `role="dialog"` và focus trap.
-- **`PRICE_LIMITS.MIN_VND = 50_000`** (`src/constants/enums.js:52`) lệch với API (500.000).
+- **`PRICE_LIMITS.MIN_VND = 50_000`** (`src/constants/enums.js:52`) lệch với API (500.000). (2026-11-08: FE đã theo SRS 50.000, chờ BE chốt)
 
 ## Success Criteria
 
@@ -174,7 +174,7 @@ Quân từ chối chạy reviewer bằng subagent, nên phần soi lỗi đượ
 | 3 | Upload ảnh/video vào CSLT Đã duyệt làm nó chuyển ngay về Chờ duyệt (ghi chú Excel), mà cảnh báo 13.2 chỉ hiện khi bấm Lưu | High | Accept: cảnh báo trước lần đổi media đầu tiên với CSLT Đã duyệt | Phase 5, 7 |
 | 4 | `useBlocker` không dùng được với `<Routes>` (A6) | Medium | Accept: chỉ dùng `beforeunload` | Phase 5 |
 | 5 | Xóa nhiều mà gọi song song dễ dính rate limit hoặc hỏng một phần mà không biết | Medium | Accept: xóa tuần tự, tổng kết thành công/thất bại | Phase 4 |
-| 6 | Giới hạn giá cứng 50.000 trong `enums.js` lệch API | Medium | Accept: lấy `priceRange` từ `/filter-options`, mặc định 500.000 | Phase 5 |
+| 6 | Giới hạn giá cứng 50.000 trong `enums.js` lệch API | Medium | Accept: lấy `priceRange` từ `/filter-options`, mặc định 500.000 (đổi thành 50.000 ngày 2026-11-08, Q2) | Phase 5 |
 
 ### Whole-Plan Consistency Sweep
 - Files reread: plan.md, phase-01 → phase-08.

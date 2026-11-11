@@ -45,7 +45,6 @@ import {
   toPayload,
   validateAll,
   validateStep,
-  getMockListingDetail,
 } from './listingFormModel';
 
 const ACCESS_ERROR_CODES = ['NOT_OWNER', 'LISTING_NOT_FOUND', 'NOT_FOUND'];
@@ -154,11 +153,7 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       })
       .catch((error) => {
         if (controller.signal.aborted || isCanceled(error)) return;
-        if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-          setOptionsState({ status: 'ready', data: resolveOptions(), error: null });
-        } else {
-          setOptionsState({ status: 'error', data: null, error });
-        }
+        setOptionsState({ status: 'error', data: null, error });
       });
     return () => controller.abort();
   }, [optionsReloadKey]);
@@ -183,30 +178,11 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       })
       .catch((error) => {
         if (controller.signal.aborted || isCanceled(error)) return;
-        if (ACCESS_ERROR_CODES.includes(error.code)) {
-          setAccessError(error);
-          return;
-        }
-        if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-          const requestedStatus = new URLSearchParams(location.search).get('status');
-          const mockData = getMockListingDetail(listingId, requestedStatus);
-          const formValues = toFormValues(mockData);
-          const sortedMedia = sortMedia(mockData?.media);
-          setDetail(mockData);
-          setValues(formValues);
-          setBaseline(formValues);
-          setMedia(sortedMedia);
-          setMediaCounts({
-            soAnh: mockData?.soAnh ?? countMedia(sortedMedia, 'IMAGE'),
-            soVideo: mockData?.soVideo ?? countMedia(sortedMedia, 'VIDEO'),
-          });
-          setDetailState({ status: 'ready', error: null });
-          return;
-        }
-        setDetailState({ status: 'error', error });
+        if (ACCESS_ERROR_CODES.includes(error.code)) setAccessError(error);
+        else setDetailState({ status: 'error', error });
       });
     return () => controller.abort();
-  }, [listingId, detailReloadKey, location.search]);
+  }, [listingId, detailReloadKey]);
 
   // "Thêm mới" only continues drafts; anything else belongs to the edit screen.
   useEffect(() => {
@@ -377,22 +353,6 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
         onCreated?.(newId);
         return true;
       } catch (error) {
-        if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-          const mockId = Math.floor(1000 + Math.random() * 9000);
-          setBaseline(values);
-          setCreatedHere(true);
-          setDetail({ ...values, maCSLT: mockId, trangThai: HOTEL_STATUS.DRAFT });
-          setDetailState({ status: 'ready', error: null });
-          setListingId(mockId);
-          setStep(2);
-          onCreated?.(mockId);
-          showToast({
-            type: 'success',
-            title: 'Đã lưu tạo mới',
-            message: `Mã cơ sở #${mockId} đã được tạo — bạn có thể tiếp tục các bước còn lại!`,
-          });
-          return true;
-        }
         handleActionError(error);
         return false;
       }
@@ -410,27 +370,6 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       if (reload) reloadDetail();
       return true;
     } catch (error) {
-      if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-        const nextStatus = status === HOTEL_STATUS.APPROVED ? HOTEL_STATUS.PENDING : status;
-        setBaseline(values);
-        setDetail((prev) => ({
-          ...(prev || {}),
-          ...values,
-          trangThai: nextStatus,
-          allowedActions: nextStatus === HOTEL_STATUS.PENDING ? ['PREVIEW', 'WITHDRAW'] : prev?.allowedActions,
-        }));
-        if (!quiet) {
-          showToast({
-            type: 'success',
-            message:
-              status === HOTEL_STATUS.APPROVED
-                ? 'Đã lưu thay đổi. Cơ sở chuyển sang Chờ duyệt.'
-                : 'Đã lưu thay đổi vào bản nháp',
-          });
-        }
-        if (advance) goToStep(Math.min(step + 1, STEPS.length));
-        return true;
-      }
       handleActionError(error);
       return false;
     }
@@ -464,13 +403,6 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
           reloadDetail();
         }
       } catch (error) {
-        if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-          setChecklistIssues([]);
-          setBanner(null);
-          showToast(SUBMITTED_TOAST);
-          setDetail((prev) => ({ ...(prev || {}), trangThai: HOTEL_STATUS.PENDING }));
-          return;
-        }
         if (error.code === 'CHECKLIST_INCOMPLETE') {
           setChecklistIssues(Array.isArray(error.details) ? error.details : []);
           setBanner({ variant: 'danger', message: error.message });
@@ -492,16 +424,6 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       } catch (error) {
         if (ACCESS_ERROR_CODES.includes(error.code)) {
           setAccessError(error);
-          return;
-        }
-        if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
-          setDetail((prev) => ({
-            ...(prev || {}),
-            trangThai: HOTEL_STATUS.DRAFT,
-            allowedActions: ['PREVIEW', 'EDIT', 'SUBMIT', 'DELETE'],
-          }));
-          setBanner(null);
-          showToast({ type: 'success', message: 'Đã rút lại yêu cầu kiểm duyệt. Cơ sở đã về Bản nháp.' });
           return;
         }
         setBanner({ variant: 'danger', message: error.message });
@@ -707,13 +629,13 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       {status === HOTEL_STATUS.REJECTED && (
         <FormBanner
           title="Quản trị viên đã từ chối cơ sở này"
-          message={`Lý do: ${detail?.lyDoTuChoi || 'Ảnh bìa không đúng với cơ sở và địa chỉ chưa khớp với vị trí ghim trên bản đồ. Vui lòng sửa rồi gửi kiểm duyệt lại.'}`}
+          message={`Lý do: ${detail?.lyDoTuChoi || 'Không có ghi chú.'}`}
         />
       )}
       {status === HOTEL_STATUS.HIDDEN && (
         <FormBanner
           title="Quản trị viên đã ẩn cơ sở này"
-          message={`Lý do: ${detail?.lyDoViPham || 'Phát hiện vi phạm tiêu chuẩn cộng đồng về thông tin liên hệ. Vui lòng sửa lại để được xem xét hiển thị.'}`}
+          message={`Lý do: ${detail?.lyDoViPham || 'Không có ghi chú.'}`}
         />
       )}
       {banner && <FormBanner role="alert" {...banner} />}

@@ -254,7 +254,8 @@ describe('AddHotelPage', () => {
     expect(id).toBe(12);
     expect(payload).toMatchObject({ tenCSLT: 'Nhà Biển Xanh', maLoai: 2, maPhuong: 5, gia: 650000, maTienIch: [1] });
     expect(await screen.findByRole('heading', { name: 'Hình ảnh' })).toBeInTheDocument();
-    expect(screen.getByTestId('location')).toHaveTextContent('step=3');
+    // setSearchParams runs as a router transition, so the URL can lag one render behind the step.
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('step=3'));
   });
 
   it('ADD-09: shows LOCATION_OUT_OF_RANGE on the coordinate fields', async () => {
@@ -345,5 +346,73 @@ describe('AddHotelPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Lưu tạo mới' }));
     await waitFor(() => expect(removeSpy).toHaveBeenCalledWith('beforeunload', handler));
+  });
+
+  it('ADD-14: a network error on /filter-options shows ErrorState instead of built-in lists', async () => {
+    getFilterOptions.mockRejectedValueOnce(new ApiError({ code: 'NETWORK_ERROR' })).mockResolvedValueOnce(FILTER_OPTIONS);
+    renderAdd();
+
+    expect(await screen.findByText('Không tải được dữ liệu')).toBeInTheDocument();
+    expect(screen.getByText('Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối và thử lại.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Thêm cơ sở lưu trú' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Lộc Thọ' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByRole('heading', { name: 'Thêm cơ sở lưu trú' })).toBeInTheDocument();
+    expect(getFilterOptions).toHaveBeenCalledTimes(2);
+  });
+
+  it('ADD-15: a network error on create shows the save error and keeps steps 2–4 locked', async () => {
+    createHostListing.mockRejectedValue(new ApiError({ code: 'NETWORK_ERROR' }));
+    renderAdd();
+    await screen.findByRole('heading', { name: 'Thêm cơ sở lưu trú' });
+
+    fillStepOne();
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu tạo mới' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể lưu thông tin cơ sở lưu trú. Vui lòng kiểm tra kết nối và thử lại.',
+    );
+    expect(screen.queryByText('Đã lưu tạo mới')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/host\/hotels\/new$/);
+    expect(screen.getByRole('heading', { level: 1, name: 'Thêm cơ sở lưu trú' })).toBeInTheDocument();
+    ['Giá & tiện ích', 'Hình ảnh & video', 'Bản đồ'].forEach((label) =>
+      expect(stepButton(label)).toHaveAttribute('aria-disabled', 'true'),
+    );
+    expect(getHostListingDetail).not.toHaveBeenCalled();
+  });
+
+  it('ADD-16: switching steps keeps unsaved values and does not reload the draft', async () => {
+    getHostListingDetail.mockResolvedValue(draft());
+    renderAdd('/host/hotels/new?id=12&step=2');
+    await screen.findByRole('heading', { name: 'Giá tham khảo' });
+
+    fireEvent.change(screen.getByLabelText(/^Giá tham khảo/), { target: { value: '700000' } });
+    fireEvent.click(stepButton('Thông tin cơ bản'));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('step=1'));
+    fireEvent.click(stepButton('Giá & tiện ích'));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('step=2'));
+
+    expect(await screen.findByLabelText(/^Giá tham khảo/)).toHaveValue('700.000');
+    expect(getHostListingDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('ADD-17: "Lưu nháp" saves the draft and stays on the current step', async () => {
+    getHostListingDetail.mockResolvedValueOnce(draft()).mockResolvedValueOnce(draft({ gia: 700000 }));
+    updateHostListing.mockResolvedValue({ maCSLT: 12, trangThai: 'DRAFT', thayDoiTrangThai: false });
+    renderAdd('/host/hotels/new?id=12&step=2');
+    await screen.findByRole('heading', { name: 'Giá tham khảo' });
+
+    fireEvent.change(screen.getByLabelText(/^Giá tham khảo/), { target: { value: '700000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu thay đổi');
+    expect(updateHostListing).toHaveBeenCalledTimes(1);
+    expect(updateHostListing).toHaveBeenCalledWith(12, expect.objectContaining({ gia: 700000 }));
+    expect(screen.getByRole('heading', { name: 'Giá tham khảo' })).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('/host/hotels/new?id=12&step=2');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText(/^Giá tham khảo/)).toHaveValue('700.000'));
   });
 });

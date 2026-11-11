@@ -273,6 +273,7 @@ describe('HostDashboardPage: listing data', () => {
     renderPage();
 
     expect(await screen.findByText('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
   });
 
   it('DASH-14: ignores a stale response after a quick tab switch', async () => {

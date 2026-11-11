@@ -200,6 +200,26 @@ describe('HostProfilePage: profile', () => {
     expect(banner).toHaveTextContent('Cập nhật thông tin không thành công do sự cố hệ thống. Vui lòng thử lại sau.');
   });
 
+  it('PROF-15: shows FIELD_NOT_EDITABLE from the server in the banner and keeps the values', async () => {
+    await renderReady();
+    updateHostProfile.mockRejectedValue(
+      new ApiError({
+        status: 400,
+        code: 'FIELD_NOT_EDITABLE',
+        message: 'Email và CCCD không thể tự chỉnh sửa. Vui lòng liên hệ quản trị viên.',
+      }),
+    );
+
+    fireEvent.change(nameInput(), { target: { value: 'Tên mới' } });
+    fireEvent.click(saveButton());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Email và CCCD không thể tự chỉnh sửa. Vui lòng liên hệ quản trị viên.',
+    );
+    expect(nameInput()).toHaveValue('Tên mới');
+    expect(screen.queryByText('Cập nhật thông tin thành công')).not.toBeInTheDocument();
+  });
+
   it('PROF-13: calls the API once on a double click', async () => {
     await renderReady();
     updateHostProfile.mockReturnValue(new Promise(() => {}));
