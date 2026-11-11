@@ -61,7 +61,7 @@ Trong tab "TC - Host (Chủ cơ sở)", ô `Notes` của cả 11 case đã có s
 ## Chạy với backend
 
 ```bash
-E2E_TARGET=backend VITE_API_BASE_URL=https://<api>/api/v1 E2E_HOST_TOKEN=<jwt> \
+E2E_TARGET=backend VITE_API_BASE_URL=https://<api>/api E2E_HOST_TOKEN=<jwt> \
   npx vitest run --config e2e/vitest.config.js
 ```
 
@@ -69,9 +69,21 @@ Dùng **tài khoản test riêng**, không dùng tài khoản thật. Token ch�
 
 Cần có trước khi chạy:
 
-- **Địa chỉ API đang chạy**, đặt vào `VITE_API_BASE_URL`.
+- **Địa chỉ API đang chạy**, đặt vào `VITE_API_BASE_URL`. Backend của nhóm dùng đường dẫn gốc `/api`, không có `/v1` (ví dụ `https://<app>.azurewebsites.net/api`). Gọi `/api/v1/...` sẽ nhận 404.
 - **Backend cho phép CORS từ `http://localhost:5199`.** Vite không có proxy, nên trình duyệt gọi thẳng vào API. Thiếu CORS thì trang báo "Không thể kết nối tới máy chủ", giống như khi không có server.
-- **Token còn hạn của tài khoản Host test.** Đăng nhập tài khoản đó trên app, rồi copy giá trị `token` trong Local Storage (DevTools → Application). Nếu token sai hoặc hết hạn, API trả 401. Khi đó app xóa phiên và chuyển về `/login` (`src/services/axiosClient.js`), nên cả 11 case báo `Error`.
+- **Token còn hạn của tài khoản Host test.** Token chỉ sống 30 phút, nên lấy ngay trước khi chạy. Nếu màn đăng nhập của app đã nối với backend: đăng nhập, rồi copy giá trị `token` trong Local Storage (DevTools → Application). Nếu chưa nối: gọi thẳng API theo các lệnh bên dưới. Nếu token sai hoặc hết hạn, API trả 401. Khi đó app xóa phiên và chuyển về `/login` (`src/services/axiosClient.js`), nên cả 11 case báo `Error`.
+
+Lấy token bằng API (tên trường theo code backend, nhánh `develop`):
+
+```bash
+API=https://<app>.azurewebsites.net/api
+# 1. Gửi email (hoặc SĐT) và mật khẩu, nhận challengeId. Backend gửi mã OTP 6 số về email của tài khoản.
+curl -s -X POST "$API/auth/signin" -H 'Content-Type: application/json' \
+  -d '{"loginIdentity":"<email>","matKhau":"<mật khẩu>"}'
+# 2. Gửi mã OTP, nhận accessToken. Dùng giá trị này cho E2E_HOST_TOKEN.
+curl -s -X POST "$API/auth/signin/verify" -H 'Content-Type: application/json' \
+  -d '{"challengeId":"<challengeId>","otpCode":"<6 số>"}'
+```
 
 Cần chuẩn bị dữ liệu:
 
