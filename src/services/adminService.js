@@ -20,51 +20,35 @@ export const adminService = {
   // GET /admin/listings (Row 42)
   getListings: async (params) => {
     if (USE_MOCK) return mockAdminApi.getListings(params);
-    try {
-      const res = await axiosClient.get('/admin/listings', { params });
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.getListings(params);
-    }
+    const res = await axiosClient.get('/admin/listings', { params });
+    return unwrap(res);
   },
 
   // GET /admin/listings/:maCSLT (Row 43)
   getListingDetail: async (maCSLT) => {
     if (USE_MOCK) return mockAdminApi.getListingDetail(maCSLT);
-    try {
-      const res = await axiosClient.get(`/admin/listings/${maCSLT}`);
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.getListingDetail(maCSLT);
-    }
+    const res = await axiosClient.get(`/admin/listings/${maCSLT}`);
+    return unwrap(res);
   },
 
   // PATCH /admin/listings/:maCSLT/moderation (Row 44 - Duyệt / Từ chối)
   moderateListing: async (maCSLT, { action, lyDoTuChoi }) => {
     if (USE_MOCK) return mockAdminApi.moderateListing(maCSLT, { action, lyDoTuChoi });
-    try {
-      const res = await axiosClient.patch(`/admin/listings/${maCSLT}/moderation`, {
-        action,
-        lyDoTuChoi,
-      });
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.moderateListing(maCSLT, { action, lyDoTuChoi });
-    }
+    const res = await axiosClient.patch(`/admin/listings/${maCSLT}/moderation`, {
+      action,
+      lyDoTuChoi,
+    });
+    return unwrap(res);
   },
 
   // PATCH /admin/listings/:maCSLT/unpublish (Row 45 - Ẩn / Gỡ cơ sở vi phạm)
   unpublishListing: async (maCSLT, { hinhThuc, lyDoViPham }) => {
     if (USE_MOCK) return mockAdminApi.unpublishListing(maCSLT, { hinhThuc, lyDoViPham });
-    try {
-      const res = await axiosClient.patch(`/admin/listings/${maCSLT}/unpublish`, {
-        hinhThuc,
-        lyDoViPham,
-      });
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.unpublishListing(maCSLT, { hinhThuc, lyDoViPham });
-    }
+    const res = await axiosClient.patch(`/admin/listings/${maCSLT}/unpublish`, {
+      hinhThuc,
+      lyDoViPham,
+    });
+    return unwrap(res);
   },
 
   // ==========================================
@@ -72,39 +56,37 @@ export const adminService = {
   // ==========================================
 
   // GET /admin/hosts (Row 39)
-  getHosts: async (params) => {
+  getHosts: async (params = {}) => {
     if (USE_MOCK) return mockAdminApi.getHosts(params);
-    try {
-      const res = await axiosClient.get('/admin/hosts', { params });
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.getHosts(params);
+    const cleanParams = {};
+    if (params.trangThai && params.trangThai.toLowerCase() !== 'all') {
+      cleanParams.trangThai = params.trangThai.toUpperCase();
     }
+    if (params.keyword && params.keyword.trim()) {
+      cleanParams.keyword = params.keyword.trim();
+    }
+    if (params.page) cleanParams.page = params.page;
+    if (params.limit) cleanParams.limit = params.limit;
+
+    const res = await axiosClient.get('/admin/hosts', { params: cleanParams });
+    return unwrap(res);
   },
 
   // GET /admin/hosts/:id (Row 40)
   getHostDetail: async (id) => {
     if (USE_MOCK) return mockAdminApi.getHostDetail(id);
-    try {
-      const res = await axiosClient.get(`/admin/hosts/${id}`);
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.getHostDetail(id);
-    }
+    const res = await axiosClient.get(`/admin/hosts/${id}`);
+    return unwrap(res);
   },
 
   // PATCH /admin/hosts/:id/status (Row 41 - Khóa / Mở khóa Host)
   updateHostStatus: async (id, { trangThai, lyDoKhoa }) => {
     if (USE_MOCK) return mockAdminApi.updateHostStatus(id, { trangThai, lyDoKhoa });
-    try {
-      const res = await axiosClient.patch(`/admin/hosts/${id}/status`, {
-        trangThai,
-        lyDoKhoa,
-      });
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.updateHostStatus(id, { trangThai, lyDoKhoa });
-    }
+    const res = await axiosClient.patch(`/admin/hosts/${id}/status`, {
+      trangThai,
+      lyDoKhoa,
+    });
+    return unwrap(res);
   },
 
   // ==========================================
@@ -114,59 +96,39 @@ export const adminService = {
   // GET /admin/configurations/seo (Row 46)
   getSeoConfig: async () => {
     if (USE_MOCK) return mockAdminApi.getSeoConfig();
-    try {
-      const res = await axiosClient.get('/admin/configurations/seo');
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.getSeoConfig();
-    }
+    const res = await axiosClient.get('/admin/configurations/seo');
+    return unwrap(res);
   },
 
   // PUT /admin/configurations/seo (Row 47)
   updateSeoConfig: async (data) => {
     if (USE_MOCK) return mockAdminApi.updateSeoConfig(data);
-    try {
-      const res = await axiosClient.put('/admin/configurations/seo', data);
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.updateSeoConfig(data);
-    }
+    const res = await axiosClient.put('/admin/configurations/seo', data);
+    return unwrap(res);
   },
 
   // POST /admin/configurations/seo/og-image (Row 48)
   uploadOgImage: async (file) => {
     if (USE_MOCK) return mockAdminApi.uploadOgImage(file);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await axiosClient.post('/admin/configurations/seo/og-image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.uploadOgImage(file);
-    }
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await axiosClient.post('/admin/configurations/seo/og-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return unwrap(res);
   },
 
   // GET /admin/configurations/ai (Row 49)
   getAiConfig: async () => {
     if (USE_MOCK) return mockAdminApi.getAiConfig();
-    try {
-      const res = await axiosClient.get('/admin/configurations/ai');
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.getAiConfig();
-    }
+    const res = await axiosClient.get('/admin/configurations/ai');
+    return unwrap(res);
   },
 
   // PUT /admin/configurations/ai (Row 50)
   updateAiConfig: async (data) => {
     if (USE_MOCK) return mockAdminApi.updateAiConfig(data);
-    try {
-      const res = await axiosClient.put('/admin/configurations/ai', data);
-      return unwrap(res);
-    } catch (_err) {
-      return mockAdminApi.updateAiConfig(data);
-    }
+    const res = await axiosClient.put('/admin/configurations/ai', data);
+    return unwrap(res);
   },
 };

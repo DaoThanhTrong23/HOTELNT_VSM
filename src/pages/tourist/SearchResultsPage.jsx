@@ -6,8 +6,10 @@ import { Pagination } from '../../components/common/Pagination';
 import { HotelListItem } from '../../components/tourist/HotelListItem';
 import { PRICE_LIMITS } from '../../constants/enums';
 import { SORT_OPTIONS, SEARCH_PAGE_SIZE, NHA_TRANG_WARDS } from '../../constants/filters';
+import { formatCurrency } from '../../utils/formatters';
 import { applyFiltersAndSort } from '../../utils/filterHelpers';
 import { MOCK_HOTELS } from '../../data/mockHotels';
+import { USE_MOCK } from '../../mocks/mockListings';
 import { listingService } from '../../services/listingService';
 
 /**
@@ -34,10 +36,16 @@ export const SearchResultsPage = () => {
     return raw ? raw.split(',').filter(Boolean) : [];
   }, [searchParams]);
   const sortBy = searchParams.get('sortBy') || 'price_asc';
+  const pageParam = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
   const [loading, setLoading] = useState(false);
   const [hotels, setHotels] = useState([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(pageParam);
+
+  // Đồng bộ page từ searchParams khi URL thay đổi (Back/Forward hoặc direct link)
+  useEffect(() => {
+    setPage(pageParam);
+  }, [pageParam]);
 
   // Tên phường/xã hiển thị nếu có chọn
   const selectedWardName = useMemo(() => {
@@ -50,7 +58,6 @@ export const SearchResultsPage = () => {
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    setPage(1);
 
     const fetchResults = async () => {
       try {
@@ -68,10 +75,10 @@ export const SearchResultsPage = () => {
 
         const items = res?.items || res?.data || (Array.isArray(res) ? res : []);
         if (isMounted) {
-          if (items.length > 0) {
+          if (items.length > 0 || !USE_MOCK) {
             setHotels(items);
           } else {
-            // Client filter fallback
+            // Client filter fallback chỉ khi USE_MOCK=true
             const filtered = applyFiltersAndSort({
               hotels: MOCK_HOTELS,
               keyword,
@@ -87,20 +94,24 @@ export const SearchResultsPage = () => {
           }
         }
       } catch (err) {
-        console.warn('Lỗi khi tải kết quả tìm kiếm từ listingService, fallback MOCK_HOTELS:', err);
+        console.warn('Lỗi khi tải kết quả tìm kiếm từ listingService:', err);
         if (isMounted) {
-          const filtered = applyFiltersAndSort({
-            hotels: MOCK_HOTELS,
-            keyword,
-            loaiHinh: loaiHinhParam,
-            maPhuong: maPhuongParam,
-            radiusKm: radiusKmParam,
-            minPrice: minPriceParam,
-            maxPrice: maxPriceParam,
-            amenities: amenitiesParam,
-            sortBy,
-          });
-          setHotels(filtered);
+          if (USE_MOCK) {
+            const filtered = applyFiltersAndSort({
+              hotels: MOCK_HOTELS,
+              keyword,
+              loaiHinh: loaiHinhParam,
+              maPhuong: maPhuongParam,
+              radiusKm: radiusKmParam,
+              minPrice: minPriceParam,
+              maxPrice: maxPriceParam,
+              amenities: amenitiesParam,
+              sortBy,
+            });
+            setHotels(filtered);
+          } else {
+            setHotels([]);
+          }
         }
       } finally {
         if (isMounted) {
@@ -130,6 +141,7 @@ export const SearchResultsPage = () => {
     (newSort) => {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set('sortBy', newSort);
+      nextParams.delete('page');
       setSearchParams(nextParams);
     },
     [searchParams, setSearchParams]
@@ -139,13 +151,31 @@ export const SearchResultsPage = () => {
     (key) => {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete(key);
+      nextParams.delete('page');
       setSearchParams(nextParams);
     },
     [searchParams, setSearchParams]
   );
 
-  // Phân trang
-  const pagedHotels = hotels.slice((page - 1) * SEARCH_PAGE_SIZE, page * SEARCH_PAGE_SIZE);
+  const handlePageChange = useCallback(
+    (newPage) => {
+      setPage(newPage);
+      const nextParams = new URLSearchParams(searchParams);
+      if (newPage > 1) {
+        nextParams.set('page', String(newPage));
+      } else {
+        nextParams.delete('page');
+      }
+      setSearchParams(nextParams);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [searchParams, setSearchParams]
+  );
+
+  // Phân trang an toàn với safePage nằm trong [1, totalPages]
+  const totalPages = Math.max(1, Math.ceil(hotels.length / SEARCH_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pagedHotels = hotels.slice((safePage - 1) * SEARCH_PAGE_SIZE, safePage * SEARCH_PAGE_SIZE);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -220,6 +250,51 @@ export const SearchResultsPage = () => {
                 </button>
               </span>
             )}
+
+            {(minPriceParam > PRICE_LIMITS.MIN_VND || maxPriceParam < PRICE_LIMITS.MAX_VND) && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#F8F4E8] text-black border border-[#CBD5E1]">
+                Giá: {formatCurrency(minPriceParam)} – {maxPriceParam >= PRICE_LIMITS.MAX_VND ? '...' : formatCurrency(maxPriceParam)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextParams = new URLSearchParams(searchParams);
+                    nextParams.delete('minPrice');
+                    nextParams.delete('maxPrice');
+                    setSearchParams(nextParams);
+                  }}
+                  className="hover:text-red-500 cursor-pointer ml-0.5"
+                  title="Bỏ lọc giá"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+
+            {amenitiesParam.map((amenity) => (
+              <span
+                key={amenity}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#F8F4E8] text-black border border-[#CBD5E1]"
+              >
+                {amenity}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextParams = new URLSearchParams(searchParams);
+                    const remaining = amenitiesParam.filter((a) => a !== amenity);
+                    if (remaining.length > 0) {
+                      nextParams.set('amenities', remaining.join(','));
+                    } else {
+                      nextParams.delete('amenities');
+                    }
+                    setSearchParams(nextParams);
+                  }}
+                  className="hover:text-red-500 cursor-pointer ml-0.5"
+                  title={`Bỏ tiện ích ${amenity}`}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -251,10 +326,12 @@ export const SearchResultsPage = () => {
           {/* Phân trang */}
           <div className="pt-2 flex justify-center">
             <Pagination
-              currentPage={page}
+              page={safePage}
+              currentPage={safePage}
+              total={hotels.length}
               totalItems={hotels.length}
               pageSize={SEARCH_PAGE_SIZE}
-              onPageChange={setPage}
+              onPageChange={handlePageChange}
             />
           </div>
         </div>

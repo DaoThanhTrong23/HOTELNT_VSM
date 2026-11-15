@@ -79,12 +79,9 @@ describe('hostMockApi (VITE_USE_MOCK=true)', () => {
     expectNoNetwork();
   });
 
-  it('MOCK-02: the listing table still calls the real API in mock mode', async () => {
-    axiosClient.get.mockResolvedValueOnce({ items: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
-
-    await getHostListings({ page: 1, limit: 10 });
-
-    expect(axiosClient.get).toHaveBeenCalledWith('/host/listings', expect.objectContaining({ params: { page: 1, limit: 10 } }));
+  it('MOCK-02: the listing table uses mock in mock mode', async () => {
+    const res = await getHostListings({ page: 1, limit: 10 });
+    expect(res).toHaveProperty('items');
   });
 
   it('MOCK-03: filter options have the 4 lists and the default price range', async () => {

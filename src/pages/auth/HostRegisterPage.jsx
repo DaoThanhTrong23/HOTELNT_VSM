@@ -21,6 +21,7 @@ const PHONE_REGEX = /^0\d{9}$/;
 const CCCD_REGEX = /^\d{12}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=[\]\\/`~]).{8,}$/;
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
 export const HostRegisterPage = () => {
   const navigate = useNavigate();
@@ -243,31 +244,60 @@ export const HostRegisterPage = () => {
 
       // Đăng ký thành công -> chuyển hướng sang trang xác thực OTP
       const registrationId = responseData?.registrationId || 'reg-' + Date.now();
-      navigate(`${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(payload.email)}`, {
-        state: {
-          registrationId,
-          email: payload.email,
-          phone: payload.soDienThoai,
-          otpExpiresIn: responseData?.otpExpiresIn || 300,
-          resendAfter: responseData?.resendAfter || 60,
-        },
-      });
-    } catch (err) {
-      console.warn('Lưu ý kết nối API (đang trong môi trường thử nghiệm):', err.message);
-
-      // Fallback cho môi trường test giao diện khi mock server chưa sẵn sàng:
-      // Cho phép test chuyển trang thành công
-      setTimeout(() => {
-        navigate(`${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(formData.email.trim())}`, {
+      try {
+        sessionStorage.setItem('hotelnt_otp_flow', 'SIGNUP');
+        sessionStorage.setItem('hotelnt_otp_challenge', registrationId);
+        sessionStorage.setItem(`hotelnt_otp_challenge_${payload.email}`, registrationId);
+      } catch {
+        /* ignore */
+      }
+      navigate(
+        `${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(payload.email)}&flow=SIGNUP&registrationId=${encodeURIComponent(registrationId)}`,
+        {
           state: {
-            registrationId: 'reg-mock-' + Date.now(),
-            email: formData.email.trim(),
-            phone: formData.soDienThoai.trim(),
-            otpExpiresIn: 300,
-            resendAfter: 60,
+            flow: 'SIGNUP',
+            registrationId,
+            challengeId: registrationId,
+            email: payload.email,
+            phone: payload.soDienThoai,
+            otpExpiresIn: responseData?.otpExpiresIn || 300,
+            resendAfter: responseData?.resendAfter || 60,
           },
+        }
+      );
+    } catch (err) {
+      console.warn('Lưu ý kết nối API:', err);
+      const serverMessage =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.';
+
+      if (USE_MOCK) {
+        // Fallback cho môi trường test giao diện khi mock server chưa sẵn sàng:
+        setTimeout(() => {
+          const mockRegId = 'reg-mock-' + Date.now();
+          navigate(
+            `${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(formData.email.trim())}&flow=SIGNUP&registrationId=${encodeURIComponent(mockRegId)}`,
+            {
+              state: {
+                flow: 'SIGNUP',
+                registrationId: mockRegId,
+                challengeId: mockRegId,
+                email: formData.email.trim(),
+                phone: formData.soDienThoai.trim(),
+                otpExpiresIn: 300,
+                resendAfter: 60,
+              },
+            }
+          );
+        }, 400);
+      } else {
+        setGlobalError({
+          code: err?.response?.data?.error?.code || 'SERVER_ERROR',
+          message: serverMessage,
         });
-      }, 400);
+      }
     } finally {
       setLoading(false);
     }

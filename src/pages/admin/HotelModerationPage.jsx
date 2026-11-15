@@ -4,10 +4,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MapPin,
   CheckCircle2,
 } from 'lucide-react';
 import { adminService } from '../../services';
+import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../utils/formatters';
 import {
   HotelDetailDrawer,
   ApproveListingModal,
@@ -59,8 +59,8 @@ export const HotelModerationPage = () => {
 
   // Listings state from API
   const [listings, setListings] = useState([]);
-  const [pendingTotal, setPendingTotal] = useState(12);
-  const [liveTotal, setLiveTotal] = useState(86);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [liveTotal, setLiveTotal] = useState(0);
 
   // Selected hotel for detail drawer
   const [selectedHotel, setSelectedHotel] = useState(null);
@@ -95,6 +95,30 @@ export const HotelModerationPage = () => {
       console.error('Lỗi khi tải chi tiết cơ sở từ API:', err);
     }
   }, []);
+
+  // --- FETCH COUNTS FOR BOTH TABS ---
+  const fetchCounts = useCallback(async () => {
+    try {
+      const [pendingRes, approvedRes] = await Promise.allSettled([
+        adminService.getListings({ trangThai: 'PENDING', limit: 1 }),
+        adminService.getListings({ trangThai: 'APPROVED', limit: 1 }),
+      ]);
+      if (pendingRes.status === 'fulfilled' && pendingRes.value) {
+        const val = pendingRes.value;
+        setPendingTotal(val.pagination?.totalItems ?? (Array.isArray(val) ? val.length : (val.items?.length || 0)));
+      }
+      if (approvedRes.status === 'fulfilled' && approvedRes.value) {
+        const val = approvedRes.value;
+        setLiveTotal(val.pagination?.totalItems ?? (Array.isArray(val) ? val.length : (val.items?.length || 0)));
+      }
+    } catch (e) {
+      console.warn('Lỗi khi tải số lượng kiểm duyệt:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
 
   // --- FETCH LISTINGS FROM API (theo API_DESIGN Row 42) ---
   const fetchListings = useCallback(async () => {
@@ -173,6 +197,7 @@ export const HotelModerationPage = () => {
       setApproveModalOpen(false);
       setSelectedHotel(null);
       fetchListings();
+      fetchCounts();
     } catch (err) {
       showToast('Có lỗi xảy ra khi duyệt cơ sở qua API.');
     }
@@ -191,6 +216,7 @@ export const HotelModerationPage = () => {
       setSelectedHotel(null);
       setRejectReason('');
       fetchListings();
+      fetchCounts();
     } catch (err) {
       showToast('Có lỗi xảy ra khi từ chối cơ sở qua API.');
     }
@@ -198,17 +224,17 @@ export const HotelModerationPage = () => {
 
   // Extract display images safely
   const displayImages = useMemo(() => {
-    if (!selectedHotel) return [];
-    if (selectedHotel.media && selectedHotel.media.length > 0) {
-      return selectedHotel.media.map((m) => m.url);
-    }
-    if (selectedHotel.images && selectedHotel.images.length > 0) {
-      return selectedHotel.images;
-    }
-    if (selectedHotel.duongDanAnh) {
-      return [selectedHotel.duongDanAnh];
-    }
-    return ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200'];
+    if (!selectedHotel) return [FALLBACK_HOTEL_IMAGE];
+    const raw =
+      selectedHotel.media && selectedHotel.media.length > 0
+        ? selectedHotel.media.map((m) => (typeof m === 'string' ? m : m.url))
+        : selectedHotel.images && selectedHotel.images.length > 0
+        ? selectedHotel.images
+        : selectedHotel.duongDanAnh
+        ? [selectedHotel.duongDanAnh]
+        : [];
+    if (raw.length === 0) return [FALLBACK_HOTEL_IMAGE];
+    return raw.map((u, i) => resolveHotelImageUrl(u, i) || FALLBACK_HOTEL_IMAGE);
   }, [selectedHotel]);
 
   return (
@@ -227,17 +253,14 @@ export const HotelModerationPage = () => {
         <div className="flex items-center gap-2 text-xs text-[#64748B]">
           <span className="hover:text-black cursor-pointer">Admin</span>
           <span>&gt;</span>
-          <span className="font-semibold text-black">Quản lý &amp; Kiểm duyệt</span>
+          <span className="text-black">Quản lý và kiểm duyệt</span>
         </div>
 
         {/* PAGE TITLE */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-black tracking-tight">
-            Quản lý &amp; Kiểm duyệt
+          <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight">
+            Quản lý và kiểm duyệt
           </h1>
-          <p className="text-xs text-[#64748B] mt-1">
-            Duyệt các cơ sở lưu trú do Host gửi lên hệ thống.
-          </p>
         </div>
 
         {/* TABS */}
@@ -394,8 +417,12 @@ export const HotelModerationPage = () => {
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <img
-                              src={hotel.duongDanAnh || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600'}
+                              src={resolveHotelImageUrl(hotel.duongDanAnh) || FALLBACK_HOTEL_IMAGE}
                               alt={hotel.tenCSLT}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = FALLBACK_HOTEL_IMAGE;
+                              }}
                               className="w-12 h-12 rounded-xl object-cover shrink-0 border border-[#E2E8F0]"
                             />
                             <div className="min-w-0">

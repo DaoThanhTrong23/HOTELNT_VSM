@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
+import { BrandLogo } from './BrandLogo';
 
 export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
   const { logout, user } = useAuth();
@@ -45,8 +46,11 @@ export const Sidebar = ({ role = 'HOST', pendingCount = 0 }) => {
       {/* BRAND */}
       <div className="p-6 border-b border-[#CBD5E1]">
         <div>
-          <h1 className="text-2xl font-black text-black tracking-tight">LOGO</h1>
-          <p className="text-xs text-[#64748B] mt-1.5 leading-relaxed">
+          <BrandLogo
+            size="md"
+            to={role === 'ADMIN' ? ROUTES.ADMIN.MODERATION : ROUTES.HOST.DASHBOARD}
+          />
+          <p className="text-xs text-[#64748B] mt-2.5 leading-relaxed">
             {role === 'ADMIN'
               ? 'Chào mừng! đã đến với trang dành cho admin'
               : 'Chào mừng! đã đến với trang dành cho chủ cơ sở'}

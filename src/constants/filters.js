@@ -1,48 +1,28 @@
 import { PRICE_LIMITS } from './enums';
 
 /**
- * Danh sách loại hình cơ sở lưu trú (FR-03)
+ * Danh sách loại hình cơ sở lưu trú (FR-03) khớp chuẩn Backend DB
  */
 export const LOAI_HINH_OPTIONS = [
   'Tất cả',
   'Khách sạn',
-  'Resort',
+  'Villa',
   'Homestay',
-  'Hostel',
-  'Nhà nghỉ',
+  'Resort',
+  'Căn hộ',
 ];
 
 /**
- * Danh sách Phường/Xã TP. Nha Trang (FR-03, API_DESIGN Row 3 & 10)
+ * Danh sách Phường/Xã TP. Nha Trang (FR-03, khớp chính xác ID trong database Backend)
  */
 export const NHA_TRANG_WARDS = [
   { id: '', name: 'Tất cả Phường / Xã' },
-  { id: '1', name: 'Phường Lộc Thọ' },
-  { id: '2', name: 'Phường Vĩnh Hòa' },
-  { id: '3', name: 'Phường Vĩnh Hải' },
-  { id: '4', name: 'Phường Vĩnh Phước' },
-  { id: '5', name: 'Phường Vĩnh Thọ' },
-  { id: '6', name: 'Phường Vĩnh Nguyên' },
-  { id: '7', name: 'Phường Vĩnh Trường' },
-  { id: '8', name: 'Phường Vạn Thạnh' },
-  { id: '9', name: 'Phường Vạn Thắng' },
-  { id: '10', name: 'Phường Tân Lập' },
-  { id: '11', name: 'Phường Phước Tiến' },
-  { id: '12', name: 'Phường Phước Tân' },
-  { id: '13', name: 'Phường Phước Hải' },
-  { id: '14', name: 'Phường Phước Long' },
-  { id: '15', name: 'Phường Xương Huân' },
-  { id: '16', name: 'Phường Phương Sài' },
-  { id: '17', name: 'Phường Phương Sơn' },
-  { id: '18', name: 'Phường Ngọc Hiệp' },
-  { id: '19', name: 'Xã Vĩnh Lương' },
-  { id: '20', name: 'Xã Vĩnh Phương' },
-  { id: '21', name: 'Xã Vĩnh Ngọc' },
-  { id: '22', name: 'Xã Vĩnh Thạnh' },
-  { id: '23', name: 'Xã Vĩnh Trung' },
-  { id: '24', name: 'Xã Vĩnh Hiệp' },
-  { id: '25', name: 'Xã Vĩnh Thái' },
-  { id: '26', name: 'Xã Phước Đồng' },
+  { id: '2', name: 'Phường Lộc Thọ' },
+  { id: '1', name: 'Phường Phước Hải' },
+  { id: '3', name: 'Phường Vĩnh Phước' },
+  { id: '4', name: 'Phường Vĩnh Hải' },
+  { id: '5', name: 'Phường Vĩnh Nguyên' },
+  { id: '6', name: 'Phường Phước Long' },
 ];
 
 /**
@@ -63,17 +43,17 @@ export const RADIUS_PRESETS = [
 ];
 
 /**
- * Danh sách tiện ích phổ biến (FR-04 - quy tắc AND)
+ * Danh sách tiện ích phổ biến (FR-04 - quy tắc AND, khớp ID Backend)
  */
 export const AMENITY_OPTIONS = [
-  'Wifi miễn phí',
   'Hồ bơi',
-  'Giáp biển',
-  'Chỗ đỗ xe',
+  'Wifi',
+  'Gần biển',
+  'Bãi đậu xe',
   'Điều hòa',
-  'Gần nhà hàng',
-  'Buffet sáng',
-  'Spa',
+  'Bếp riêng',
+  'Gần chợ đêm',
+  'Gần trung tâm',
 ];
 
 /**

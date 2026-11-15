@@ -2,15 +2,23 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ArrowRight, Phone } from 'lucide-react';
 import { aiService, CHATBOT_MAX_LENGTH } from '../../services/aiService';
-import { buildTelLink, buildZaloLink } from '../../utils/contactLinks';
-import { ChatBubbleIcon, ZaloLogo } from './icons/BrandIcons';
+import { buildTelLink, buildZaloLink, buildFacebookLink } from '../../utils/contactLinks';
+import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../utils/formatters';
+import { ChatBubbleIcon, ZaloLogo, FacebookLogo } from './icons/BrandIcons';
 
 const SESSION_KEY = 'hotelnt_chatbot_session';
+
+const QUICK_PROMPTS = [
+  '🏨 Khách sạn dưới 500k',
+  '🌊 Gần biển Trần Phú',
+  '🏡 Homestay giá tốt',
+  '🏖️ Villa nghỉ dưỡng',
+];
 
 const WELCOME_MESSAGE = {
   id: 'welcome',
   sender: 'bot',
-  text: 'Chào bạn! Mình có thể gợi ý khách sạn hoặc homestay theo ngân sách của bạn ở Nha Trang.',
+  text: 'Chào bạn! Mình là Trợ lý ảo AI của Hotel Nha Trang. Mình có thể gợi ý khách sạn, homestay hoặc villa theo ngân sách và vị trí mong muốn của bạn.',
 };
 
 // Lỗi hiển thị ngay trong khung chat (không chặn cuộc trò chuyện)
@@ -47,31 +55,40 @@ const BotAvatar = ({ size = 'sm' }) => (
   </div>
 );
 
-/* Thẻ HotelCard thu nhỏ trong tin nhắn bot: ảnh, tên, giá, Xem chi tiết, gọi, Zalo */
+/* Thẻ HotelCard thu nhỏ trong tin nhắn bot: ảnh, tên, giá, Xem chi tiết, gọi, Zalo, Facebook */
 const MiniHotelCard = ({ listing, onNavigate }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const tel = buildTelLink(listing.lienHe?.soDienThoai);
   const zalo = buildZaloLink(listing.lienHe?.zalo);
+  const facebook = buildFacebookLink(listing.lienHe?.facebook);
+  const resolvedImg = resolveHotelImageUrl(listing.duongDanAnh);
+
   return (
-    <div className="w-[230px] flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.12)]">
-      <div className="h-[110px] bg-[#E5E7EB]">
-        {listing.duongDanAnh && !imgFailed && (
-          <img
-            src={listing.duongDanAnh}
-            alt={listing.tenCSLT}
-            loading="lazy"
-            onError={() => setImgFailed(true)}
-            className="w-full h-full object-cover"
-          />
+    <div className="w-[230px] flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.12)] border border-[#E2E8F0]">
+      <div className="h-[115px] bg-[#E5E7EB] relative overflow-hidden">
+        <img
+          src={!imgFailed && resolvedImg ? resolvedImg : FALLBACK_HOTEL_IMAGE}
+          alt={listing.tenCSLT}
+          loading="lazy"
+          onError={() => setImgFailed(true)}
+          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+        />
+        {listing.tenLoai && (
+          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium">
+            {listing.tenLoai}
+          </span>
         )}
       </div>
       <div className="px-3 pt-2.5 pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <h5 className="font-bold text-[13px] text-black leading-snug line-clamp-2">{listing.tenCSLT}</h5>
-          <span className="font-bold text-[13px] text-[#E11D48] whitespace-nowrap">{formatPrice(listing.gia)}</span>
+        <div className="flex items-start justify-between gap-1.5">
+          <h5 className="font-bold text-[13px] text-black leading-snug line-clamp-2" title={listing.tenCSLT}>
+            {listing.tenCSLT}
+          </h5>
+          <span className="font-bold text-[12px] text-[#E11D48] whitespace-nowrap">
+            {formatPrice(listing.gia)}
+          </span>
         </div>
-        {listing.tenLoai && <p className="mt-1 text-[11px] text-[#94A3B8] truncate">{listing.tenLoai}</p>}
-        <div className="mt-2.5 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-1.5">
           <Link
             to={`/hotel/${listing.maCSLT}`}
             onClick={onNavigate}
@@ -80,13 +97,37 @@ const MiniHotelCard = ({ listing, onNavigate }) => {
             Xem chi tiết
           </Link>
           {tel && (
-            <a href={tel} aria-label="Gọi điện" className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8]">
+            <a
+              href={tel}
+              aria-label="Gọi điện"
+              title="Gọi điện"
+              className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8] transition-colors"
+            >
               <Phone size={13} />
             </a>
           )}
           {zalo && (
-            <a href={zalo} target="_blank" rel="noopener noreferrer" aria-label="Chat Zalo" className="w-8 h-8 flex items-center justify-center hover:opacity-85">
-              <ZaloLogo size={26} />
+            <a
+              href={zalo}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Chat Zalo"
+              title="Chat Zalo"
+              className="w-8 h-8 flex items-center justify-center hover:opacity-85 transition-opacity"
+            >
+              <ZaloLogo size={24} />
+            </a>
+          )}
+          {facebook && (
+            <a
+              href={facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              title="Facebook"
+              className="w-8 h-8 flex items-center justify-center hover:opacity-85 transition-opacity"
+            >
+              <FacebookLogo size={20} />
             </a>
           )}
         </div>
@@ -259,6 +300,23 @@ export const AiChatbot = () => {
                       )}
                     </div>
                   )
+                )}
+
+                {/* GỢI Ý CÂU HỎI NHANH (QUICK PROMPTS) */}
+                {messages.length <= 1 && !loading && (
+                  <div className="pt-1 pl-[38px] flex flex-wrap gap-1.5">
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => sendText(prompt)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#F8F4E8] hover:bg-[#EFE8D3] text-[#1E293B] border border-[#E7E2D3] transition-colors cursor-pointer disabled:opacity-50 text-left shadow-xs active:scale-95"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
                 )}
 
                 {loading && (

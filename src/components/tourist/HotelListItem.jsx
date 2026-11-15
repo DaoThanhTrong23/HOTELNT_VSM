@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Phone } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
-import { buildTelLink, buildZaloLink } from '../../utils/contactLinks';
-import { ZaloLogo } from '../common/icons/BrandIcons';
+import { formatCurrency, resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE, DEFAULT_HOTEL_IMAGES } from '../../utils/formatters';
+import { buildTelLink, buildZaloLink, buildFacebookLink } from '../../utils/contactLinks';
+import { ZaloLogo, FacebookLogo } from '../common/icons/BrandIcons';
 
 /**
  * Component hiển thị thông tin khách sạn dạng list item theo Figma
@@ -18,19 +18,27 @@ export const HotelListItem = ({ hotel }) => {
   const minPrice = hotel.gia ?? hotel.minPrice;
   const rawPhone = hotel.lienHe?.soDienThoai ?? hotel.phone;
   const rawZalo = hotel.lienHe?.zalo ?? hotel.zalo ?? rawPhone;
+  const rawFacebook = hotel.lienHe?.facebook ?? hotel.facebook;
   const description = hotel.moTa ?? hotel.description;
 
   const telLink = buildTelLink(rawPhone);
   const zaloLink = buildZaloLink(rawZalo);
+  const facebookLink = buildFacebookLink(rawFacebook);
+  const imageUrl = resolveHotelImageUrl(thumbnail, id);
 
   return (
     <div className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden flex flex-col sm:flex-row hover:shadow-md transition-shadow">
       {/* Ảnh thumbnail */}
       <div className="relative sm:w-64 sm:flex-shrink-0 aspect-video sm:aspect-auto overflow-hidden bg-[#CBD5E1]">
-        {thumbnail ? (
+        {imageUrl ? (
           <img
-            src={thumbnail}
+            src={imageUrl}
             alt={name}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              const idx = typeof id === 'number' ? Math.abs(id) : 0;
+              e.currentTarget.src = DEFAULT_HOTEL_IMAGES[idx % DEFAULT_HOTEL_IMAGES.length] || FALLBACK_HOTEL_IMAGE;
+            }}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
           />
         ) : (
@@ -93,6 +101,17 @@ export const HotelListItem = ({ hotel }) => {
                 className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
               >
                 <ZaloLogo size={18} />
+              </a>
+            )}
+            {facebookLink && (
+              <a
+                href={facebookLink}
+                target="_blank"
+                rel="noreferrer"
+                title="Fanpage Facebook"
+                className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
+              >
+                <FacebookLogo size={18} />
               </a>
             )}
             <Link

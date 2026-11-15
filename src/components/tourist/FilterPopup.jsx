@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, RotateCcw, MapPin, Navigation } from 'lucide-react';
 import { PRICE_LIMITS } from '../../constants/enums';
 import {
@@ -9,6 +9,7 @@ import {
   RADIUS_LIMITS,
   RADIUS_PRESETS,
 } from '../../constants/filters';
+import { listingService } from '../../services/listingService';
 import { formatCurrency } from '../../utils/formatters';
 
 /**
@@ -38,6 +39,38 @@ export const FilterPopup = ({
   onApply,
 }) => {
   const overlayRef = useRef(null);
+  const [wards, setWards] = useState(NHA_TRANG_WARDS);
+  const [propertyTypes, setPropertyTypes] = useState(LOAI_HINH_OPTIONS);
+  const [amenityOptions, setAmenityOptions] = useState(AMENITY_OPTIONS);
+
+  useEffect(() => {
+    let isMounted = true;
+    listingService.getFilterOptions()
+      .then((data) => {
+        if (!isMounted || !data) return;
+        if (Array.isArray(data.wards) && data.wards.length > 0) {
+          const mappedWards = [
+            { id: '', name: 'Tất cả phường/xã' },
+            ...data.wards.map((w) => ({ id: String(w.maPhuong), name: w.tenPhuong })),
+          ];
+          setWards(mappedWards);
+        }
+        if (Array.isArray(data.propertyTypes) && data.propertyTypes.length > 0) {
+          const mappedTypes = ['Tất cả', ...data.propertyTypes.map((t) => t.tenLoai)];
+          setPropertyTypes(mappedTypes);
+        }
+        if (Array.isArray(data.amenities) && data.amenities.length > 0) {
+          const mappedAmenities = data.amenities.map((a) => a.tenTienIch);
+          setAmenityOptions(mappedAmenities);
+        }
+      })
+      .catch((err) => {
+        console.warn('Không tải được filter-options từ server, dùng danh mục mặc định:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Đóng khi click ra ngoài backdrop
   const handleOverlayClick = (e) => {
@@ -94,7 +127,7 @@ export const FilterPopup = ({
               Loại hình cơ sở
             </label>
             <div className="flex flex-wrap gap-2">
-              {LOAI_HINH_OPTIONS.map((opt) => (
+              {propertyTypes.map((opt) => (
                 <button
                   key={opt}
                   id={`loai-hinh-${opt.replace(/\s/g, '-')}`}
@@ -137,7 +170,7 @@ export const FilterPopup = ({
                 onChange={(e) => setMaPhuong(e.target.value)}
                 className="w-full appearance-none px-3.5 py-2.5 pr-8 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-black focus:outline-none focus:border-black transition cursor-pointer font-medium"
               >
-                {NHA_TRANG_WARDS.map((ward) => (
+                {wards.map((ward) => (
                   <option key={ward.id} value={ward.id}>
                     {ward.name}
                   </option>
@@ -289,7 +322,7 @@ export const FilterPopup = ({
               Tiện ích
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {AMENITY_OPTIONS.map((item) => (
+              {amenityOptions.map((item) => (
                 <label
                   key={item}
                   className="flex items-center gap-2.5 text-xs sm:text-sm text-black cursor-pointer group"

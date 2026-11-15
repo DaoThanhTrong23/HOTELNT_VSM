@@ -1,19 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation } from 'lucide-react';
-import { MAP_PINS } from '../../data/mockHotels';
+import { Navigation, Plus, Minus, RotateCcw, MapPin } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { listingService } from '../../services/listingService';
+import { MAP_PINS } from '../../data/mockHotels';
+import {
+  formatCurrency,
+  resolveHotelImageUrl,
+  FALLBACK_HOTEL_IMAGE,
+} from '../../utils/formatters';
+
+const NHA_TRANG_CENTER = [12.2451, 109.1943];
+const DEFAULT_ZOOM = 13;
+
+const FALLBACK_LOCATIONS = [
+  { lat: 12.2451, lng: 109.1943 },
+  { lat: 12.2400, lng: 109.1950 },
+  { lat: 12.2500, lng: 109.1900 },
+  { lat: 12.2700, lng: 109.2100 },
+  { lat: 12.2350, lng: 109.1980 },
+];
 
 /**
- * Component MapSection hiển thị bản đồ định vị các cơ sở lưu trú (theo Figma Tourist/Home & SRS FR-05, API Row 4)
- * Gọi API GET /listings/map-markers với fallback về MAP_PINS
+ * Component MapSection hiển thị bản đồ Google Maps tương tác
+ * với các dấu chỉ vị trí (Google Red Pins) của tất cả khách sạn trong CSDL.
  */
-export const MapSection = ({ pins: initialPins, onPinClick }) => {
+export const MapSection = ({
+  pins: initialPins,
+  onPinClick,
+  height,
+  className = '',
+}) => {
   const navigate = useNavigate();
-  const [markers, setMarkers] = useState(initialPins || MAP_PINS);
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersLayerRef = useRef(null);
+  const [markers, setMarkers] = useState(initialPins || []);
 
+  // 1. Tải danh sách markers từ API /listings/map-markers
   useEffect(() => {
-    if (initialPins) {
+    if (initialPins && initialPins.length > 0) {
       setMarkers(initialPins);
       return;
     }
@@ -22,12 +49,20 @@ export const MapSection = ({ pins: initialPins, onPinClick }) => {
     const fetchMarkers = async () => {
       try {
         const res = await listingService.getMapMarkers();
-        const data = res?.items || res?.data || (Array.isArray(res) ? res : []);
-        if (isMounted && data.length > 0) {
-          setMarkers(data);
+        const data =
+          res?.markers || res?.items || res?.data || (Array.isArray(res) ? res : []);
+        if (isMounted) {
+          if (data && data.length > 0) {
+            setMarkers(data);
+          } else {
+            setMarkers(MAP_PINS);
+          }
         }
       } catch (err) {
         console.warn('Lỗi khi tải map markers từ listingService, fallback MAP_PINS:', err);
+        if (isMounted) {
+          setMarkers(MAP_PINS);
+        }
       }
     };
 
@@ -37,100 +72,425 @@ export const MapSection = ({ pins: initialPins, onPinClick }) => {
     };
   }, [initialPins]);
 
-  const handlePinClick = (pin) => {
-    if (onPinClick) {
-      onPinClick(pin);
-    } else {
-      const pinId = pin.maCSLT || pin.id;
-      navigate(`/hotel/${pinId}`);
+  // 2. Khởi tạo bản đồ Google Maps Tiles qua Leaflet
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: NHA_TRANG_CENTER,
+        zoom: DEFAULT_ZOOM,
+        zoomControl: false,
+        scrollWheelZoom: true,
+      });
+
+      // Lớp bản đồ Google Maps (lyrs=m: roadmap tiêu chuẩn tiếng Việt)
+      L.tileLayer(
+        'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        {
+          attribution:
+            '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a>',
+          maxZoom: 20,
+          subdomains: ['0', '1', '2', '3'],
+        }
+      ).addTo(map);
+
+      markersLayerRef.current = L.layerGroup().addTo(map);
+      mapInstanceRef.current = map;
     }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markersLayerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Đảm bảo Leaflet cập nhật kích thước khung nhìn khi render hoặc container resize
+  useEffect(() => {
+    if (!mapInstanceRef.current || !mapContainerRef.current) return;
+    const map = mapInstanceRef.current;
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      ro.observe(mapContainerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      if (ro) ro.disconnect();
+    };
+  }, []);
+
+  // 3. Render markers dấu chỉ vị trí đỏ (Google Map Pins) lên bản đồ
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const layer = markersLayerRef.current;
+    if (!map || !layer) return;
+
+    layer.clearLayers();
+
+    const bounds = [];
+
+    markers.forEach((pin, index) => {
+      let lat = Number(pin.latitude ?? pin.viDo ?? pin.lat);
+      let lng = Number(pin.longitude ?? pin.kinhDo ?? pin.lng);
+
+      // Nếu không có tọa độ số hợp lệ, dùng vị trí mẫu trong Nha Trang
+      if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+        const fallback = FALLBACK_LOCATIONS[index % FALLBACK_LOCATIONS.length];
+        lat = fallback.lat;
+        lng = fallback.lng;
+      }
+
+      bounds.push([lat, lng]);
+
+      const pinId = pin.maCSLT || pin.id;
+      const pinName = pin.tenCSLT || pin.name || pin.label || 'Cơ sở lưu trú';
+      const pinType = pin.tenLoai || pin.type || 'Khách sạn';
+      const pinPrice = pin.gia ? formatCurrency(pin.gia) : '';
+      const pinImg = resolveHotelImageUrl(pin.duongDanAnh || pin.thumbnail, index) || FALLBACK_HOTEL_IMAGE;
+
+      // Google Red Pin SVG Icon ("dấu chỉ vị trí" giống Google Maps trong trang chi tiết)
+      const customIcon = L.divIcon({
+        className: 'google-map-marker-wrapper',
+        html: `
+          <div class="google-pin-container" title="${pinName}">
+            <div class="google-pin-badge">
+              <span class="badge-text">${pinPrice || pinName}</span>
+            </div>
+            <div class="google-pin-svg-wrap">
+              <svg class="google-pin-svg" width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C7.163 0 0 7.163 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.163 24.837 0 16 0Z" fill="#EA4335"/>
+                <path d="M16 1C7.716 1 1 7.716 1 16C1 27.2 16 40.5 16 40.5C16 40.5 31 27.2 31 16C31 7.716 24.284 1 16 1Z" stroke="#B31412" stroke-width="1.2"/>
+                <circle cx="16" cy="15" r="6" fill="#FFFFFF"/>
+                <circle cx="16" cy="15" r="3" fill="#B31412"/>
+              </svg>
+              <div class="google-pin-ground-shadow"></div>
+            </div>
+          </div>
+        `,
+        iconSize: [120, 68],
+        iconAnchor: [60, 64],
+        popupAnchor: [0, -66],
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon });
+
+      // Nội dung Popup chi tiết khi click marker
+      const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      const popupHtml = `
+        <div class="google-map-popup">
+          <div class="popup-image-container">
+            <img src="${pinImg}" alt="${pinName}" onerror="this.onerror=null;this.src='${FALLBACK_HOTEL_IMAGE}';" />
+            <span class="popup-badge">${pinType}</span>
+          </div>
+          <div class="popup-content">
+            <h4 class="popup-title">${pinName}</h4>
+            ${pinPrice ? `<p class="popup-price">${pinPrice} <span class="popup-unit">/ đêm</span></p>` : ''}
+            <div class="popup-actions">
+              <button class="popup-btn-detail" data-id="${pinId}">
+                Xem chi tiết phòng
+              </button>
+              <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" class="popup-btn-dir" title="Chỉ đường trên Google Maps">
+                Chỉ đường ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupHtml, {
+        maxWidth: 260,
+        className: 'google-leaflet-popup',
+      });
+
+      marker.on('popupopen', () => {
+        const btn = document.querySelector(`.popup-btn-detail[data-id="${pinId}"]`);
+        if (btn) {
+          btn.onclick = () => {
+            if (onPinClick) {
+              onPinClick(pin);
+            } else {
+              navigate(`/hotel/${pinId}`);
+            }
+          };
+        }
+      });
+
+      marker.on('click', () => {
+        if (onPinClick) onPinClick(pin);
+      });
+
+      layer.addLayer(marker);
+    });
+
+    // Căn chỉnh bản đồ bao trọn các markers
+    if (bounds.length > 0 && map) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [markers, navigate, onPinClick]);
+
+  // Điều khiển phóng to / thu nhỏ
+  const handleZoomIn = () => {
+    mapInstanceRef.current?.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    mapInstanceRef.current?.zoomOut();
+  };
+
+  const handleResetCenter = () => {
+    mapInstanceRef.current?.flyTo(NHA_TRANG_CENTER, DEFAULT_ZOOM);
+  };
+
+  // Định vị vị trí người dùng
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      alert('Trình duyệt của bạn không hỗ trợ định vị.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+        const map = mapInstanceRef.current;
+        if (map) {
+          map.flyTo([userLat, userLng], 15);
+          L.circleMarker([userLat, userLng], {
+            radius: 8,
+            fillColor: '#2563EB',
+            color: '#FFFFFF',
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.9,
+          })
+            .addTo(map)
+            .bindPopup('<b>📍 Vị trí hiện tại của bạn</b>')
+            .openPopup();
+        }
+      },
+      () => {
+        alert('Không thể xác định vị trí hiện tại của bạn.');
+      }
+    );
   };
 
   return (
     <div
-      className="relative w-full overflow-hidden border-b border-[#CBD5E1]"
-      style={{ height: '420px', background: '#E8EAE6' }}
+      className={`relative w-full bg-[#F1F5F9] overflow-hidden ${
+        height ? '' : 'h-[280px] sm:h-[360px] md:h-[440px] lg:h-[480px]'
+      } ${className}`}
+      style={height ? { height } : undefined}
     >
-      {/* Giả lập nền bản đồ */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(200,210,195,0.4) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(200,210,195,0.4) 1px, transparent 1px)
-          `,
-          backgroundSize: '40px 40px',
-          backgroundColor: '#E8EAE6',
-        }}
-      />
-      {/* Giả lập đường phố */}
-      <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
-        <line x1="0" y1="35%" x2="100%" y2="38%" stroke="#bbb" strokeWidth="6" />
-        <line x1="0" y1="60%" x2="100%" y2="65%" stroke="#bbb" strokeWidth="4" />
-        <line x1="25%" y1="0" x2="28%" y2="100%" stroke="#bbb" strokeWidth="5" />
-        <line x1="55%" y1="0" x2="58%" y2="100%" stroke="#bbb" strokeWidth="4" />
-        <line x1="75%" y1="0" x2="78%" y2="100%" stroke="#bbb" strokeWidth="3" />
-        <line x1="0" y1="20%" x2="100%" y2="25%" stroke="#ccc" strokeWidth="2" />
-        <line x1="40%" y1="0" x2="42%" y2="100%" stroke="#ccc" strokeWidth="2" />
-      </svg>
+      {/* Container Leaflet Map */}
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Label Google Maps */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="text-center">
-          <div className="text-4xl font-bold text-[#9AA0A6] opacity-60 select-none">Google Maps</div>
-          <div className="text-sm text-[#9AA0A6] opacity-50 mt-1">Tích hợp API bản đồ thực tế</div>
-        </div>
+      {/* Badge thông tin góc dưới trái: có max-w để không đè lên attribution Leaflet trên mobile */}
+      <div className="absolute bottom-2.5 left-2.5 sm:bottom-4 sm:left-4 z-[400] bg-white/95 backdrop-blur-xs px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full border border-[#CBD5E1] shadow-md flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold text-black max-w-[calc(100%-110px)] sm:max-w-none">
+        <MapPin size={13} className="text-[#EA4335] fill-[#EA4335] flex-shrink-0" />
+        <span className="truncate">Bản đồ vị trí · {markers.length} CSLT tại Nha Trang</span>
       </div>
 
-      {/* Map pins */}
-      {markers.map((pin) => {
-        const pinId = pin.maCSLT || pin.id;
-        const pinName = pin.tenCSLT || pin.name;
-        const pinTop = pin.top ?? (30 + ((Number(pinId) * 17) % 45));
-        const pinLeft = pin.left ?? (20 + ((Number(pinId) * 23) % 60));
-
-        return (
+      {/* Floating Controls: Phóng to / Thu nhỏ / Reset / Định vị (tối ưu kích thước trên mobile) */}
+      <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-[400] flex flex-col gap-1.5 sm:gap-2">
+        <div className="bg-white rounded-xl shadow-md border border-[#E2E8F0] overflow-hidden flex flex-col">
           <button
-            key={pinId}
-            id={`map-pin-${pinId}`}
             type="button"
-            onClick={() => handlePinClick(pin)}
-            style={{ top: `${pinTop}%`, left: `${pinLeft}%` }}
-            className="absolute group transform -translate-x-1/2 -translate-y-1/2 cursor-pointer focus:outline-none z-10"
+            onClick={handleZoomIn}
+            className="p-1.5 sm:p-2 hover:bg-neutral-100 text-neutral-800 transition cursor-pointer flex items-center justify-center border-b border-[#E2E8F0]"
+            title="Phóng to"
           >
-            {/* Pin Icon */}
-            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center shadow-lg group-hover:scale-125 group-hover:bg-[#D97706] transition-all">
-              <MapPin size={16} />
-            </div>
-
-            {/* Tooltip khi hover */}
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block whitespace-nowrap bg-black text-white text-xs px-2.5 py-1.5 rounded-lg shadow-xl pointer-events-none z-20">
-              <p className="font-bold">{pinName}</p>
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black" />
-            </div>
+            <Plus size={16} />
           </button>
-        );
-      })}
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="p-1.5 sm:p-2 hover:bg-neutral-100 text-neutral-800 transition cursor-pointer flex items-center justify-center"
+            title="Thu nhỏ"
+          >
+            <Minus size={16} />
+          </button>
+        </div>
 
-      {/* Nút chỉ đường / vị trí */}
-      <div className="absolute bottom-4 right-4 z-10">
         <button
           type="button"
-          onClick={() => {
-            if (navigator.geolocation) {
-              navigator.geolocation.getCurrentPosition(
-                (pos) => alert(`Vị trí của bạn: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`),
-                () => alert('Không thể lấy vị trí hiện tại.')
-              );
-            }
-          }}
-          className="bg-white p-2.5 rounded-xl border border-[#CBD5E1] shadow-md hover:bg-[#F8F4E8] text-black transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+          onClick={handleResetCenter}
+          className="bg-white p-2 sm:p-2.5 rounded-xl border border-[#E2E8F0] shadow-md hover:bg-neutral-100 text-neutral-800 transition cursor-pointer flex items-center justify-center"
+          title="Về trung tâm Nha Trang"
+        >
+          <RotateCcw size={15} />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleLocateMe}
+          className="bg-white p-2 sm:px-3 sm:py-2 rounded-xl border border-[#E2E8F0] shadow-md hover:bg-[#F8F4E8] text-black transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
           title="Định vị của tôi"
         >
-          <Navigation size={15} />
-          <span>Vị trí của tôi</span>
+          <Navigation size={14} className="text-[#2563EB] flex-shrink-0" />
+          <span className="hidden sm:inline">Vị trí của tôi</span>
         </button>
       </div>
+
+      {/* Custom Styles cho Google Map Pins & Popup */}
+      <style>{`
+        .google-map-marker-wrapper {
+          background: transparent !important;
+          border: none !important;
+        }
+        .google-pin-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          cursor: pointer;
+          transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .google-pin-container:hover {
+          transform: translateY(-5px) scale(1.1);
+          z-index: 9999 !important;
+        }
+        .google-pin-badge {
+          background-color: #0F172A;
+          color: #FFFFFF;
+          padding: 2.5px 8px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 700;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+          border: 1.5px solid #FFFFFF;
+          white-space: nowrap;
+          max-width: 140px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-bottom: 2px;
+          transition: background-color 0.15s ease;
+        }
+        .google-pin-container:hover .google-pin-badge {
+          background-color: #EA4335;
+        }
+        .google-pin-svg-wrap {
+          position: relative;
+          display: flex;
+          justify-content: center;
+        }
+        .google-pin-svg {
+          filter: drop-shadow(0 3px 5px rgba(0,0,0,0.3));
+        }
+        .google-pin-ground-shadow {
+          position: absolute;
+          bottom: -2px;
+          width: 14px;
+          height: 4px;
+          background: rgba(0,0,0,0.35);
+          border-radius: 50%;
+          filter: blur(1.5px);
+        }
+        .google-leaflet-popup .leaflet-popup-content-wrapper {
+          padding: 0;
+          overflow: hidden;
+          border-radius: 16px;
+          box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.25);
+          border: 1px solid #E2E8F0;
+        }
+        .google-leaflet-popup .leaflet-popup-content {
+          margin: 0;
+          line-height: 1.4;
+        }
+        .google-map-popup {
+          width: 240px;
+        }
+        .popup-image-container {
+          position: relative;
+          width: 100%;
+          height: 120px;
+          background: #F1F5F9;
+        }
+        .popup-image-container img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .popup-badge {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(4px);
+          color: #FFFFFF;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-size: 10px;
+          font-weight: 600;
+        }
+        .popup-content {
+          padding: 10px 12px 12px;
+        }
+        .popup-title {
+          margin: 0;
+          font-size: 13px;
+          font-weight: 800;
+          color: #0F172A;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .popup-price {
+          margin: 4px 0 10px;
+          font-size: 13px;
+          font-weight: 800;
+          color: #EA4335;
+        }
+        .popup-unit {
+          font-size: 10px;
+          font-weight: 500;
+          color: #64748B;
+        }
+        .popup-actions {
+          display: flex;
+          gap: 6px;
+        }
+        .popup-btn-detail {
+          flex: 1;
+          padding: 7px 10px;
+          background: #000000;
+          color: #FFFFFF;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .popup-btn-detail:hover {
+          background: #334155;
+        }
+        .popup-btn-dir {
+          padding: 7px 10px;
+          background: #FFFFFF;
+          color: #000000;
+          border: 1px solid #CBD5E1;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          text-decoration: none;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          transition: background 0.15s ease;
+        }
+        .popup-btn-dir:hover {
+          background: #F8F4E8;
+        }
+      `}</style>
     </div>
   );
 };

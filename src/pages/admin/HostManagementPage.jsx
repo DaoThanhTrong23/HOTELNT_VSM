@@ -39,6 +39,38 @@ export const HostManagementPage = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const [counts, setCounts] = useState({ total: 0, active: 0, locked: 0 });
+
+  // --- FETCH HOST COUNTS (OVERALL STATS) ---
+  const fetchHostCounts = useCallback(async () => {
+    try {
+      const [allRes, activeRes, lockedRes] = await Promise.allSettled([
+        adminService.getHosts({ limit: 1 }),
+        adminService.getHosts({ trangThai: 'ACTIVE', limit: 1 }),
+        adminService.getHosts({ trangThai: 'LOCKED', limit: 1 }),
+      ]);
+      const total =
+        allRes.status === 'fulfilled'
+          ? (allRes.value?.pagination?.totalItems ?? (Array.isArray(allRes.value) ? allRes.value.length : 0))
+          : 0;
+      const active =
+        activeRes.status === 'fulfilled'
+          ? (activeRes.value?.pagination?.totalItems ?? (Array.isArray(activeRes.value) ? activeRes.value.length : 0))
+          : 0;
+      const locked =
+        lockedRes.status === 'fulfilled'
+          ? (lockedRes.value?.pagination?.totalItems ?? (Array.isArray(lockedRes.value) ? lockedRes.value.length : 0))
+          : 0;
+      setCounts({ total, active, locked });
+    } catch (e) {
+      console.warn('Lỗi khi tải thống kê host:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHostCounts();
+  }, [fetchHostCounts]);
+
   // --- FETCH HOSTS FROM API (theo API_DESIGN Row 39) ---
   const fetchHosts = useCallback(async () => {
     try {
@@ -46,7 +78,8 @@ export const HostManagementPage = () => {
         trangThai: statusFilter,
         keyword: searchTerm,
       });
-      setHosts(data.items || data || []);
+      const list = Array.isArray(data) ? data : (data?.items || []);
+      setHosts(list);
     } catch (err) {
       console.error('Lỗi khi tải danh sách Host từ API:', err);
     }
@@ -56,8 +89,9 @@ export const HostManagementPage = () => {
     fetchHosts();
   }, [fetchHosts]);
 
-  const activeCount = hosts.filter((host) => host.trangThai === 'ACTIVE' || !host.isLocked).length;
-  const lockedCount = hosts.filter((host) => host.trangThai === 'LOCKED' || host.isLocked).length;
+  const activeCount = counts.active || hosts.filter((host) => host.trangThai === 'ACTIVE' || !host.isLocked).length;
+  const lockedCount = counts.locked || hosts.filter((host) => host.trangThai === 'LOCKED' || host.isLocked).length;
+  const totalCount = counts.total || hosts.length;
 
   // --- OPEN DETAIL FROM API (theo API_DESIGN Row 40) ---
   const openDetail = async (host) => {
@@ -95,6 +129,7 @@ export const HostManagementPage = () => {
       setSelectedHost(null);
       showToast(`Đã khóa tài khoản Host "${hostName}" thành công.`);
       fetchHosts();
+      fetchHostCounts();
     } catch (err) {
       showToast('Có lỗi xảy ra khi khóa tài khoản qua API.');
     }
@@ -113,6 +148,7 @@ export const HostManagementPage = () => {
       setSelectedHost(null);
       showToast(`Đã mở khóa tài khoản Host "${hostName}" thành công.`);
       fetchHosts();
+      fetchHostCounts();
     } catch (err) {
       showToast('Có lỗi xảy ra khi mở khóa tài khoản qua API.');
     }
@@ -151,7 +187,7 @@ export const HostManagementPage = () => {
           </p>
 
           <p className="mt-3 text-3xl font-bold text-[#171717]">
-            {hosts.length.toString().padStart(2, '0')}
+            {totalCount.toString().padStart(2, '0')}
           </p>
 
           <p className="mt-2 text-xs text-[#94A3B8]">
@@ -216,8 +252,8 @@ export const HostManagementPage = () => {
               className="rounded-xl border border-[#CBD5E1] bg-white px-3 py-2.5 text-sm font-medium text-[#334155] outline-none transition focus:border-[#B45309]"
             >
               <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="locked">Đã khóa</option>
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="LOCKED">Đã khóa</option>
             </select>
           </div>
         </div>
@@ -288,7 +324,9 @@ export const HostManagementPage = () => {
                       </td>
 
                       <td className="whitespace-nowrap px-5 py-4 text-[#64748B]">
-                        {host.ngayTao || host.createdAt}
+                        {host.ngayTao
+                          ? new Date(host.ngayTao).toLocaleDateString('vi-VN')
+                          : host.createdAt || '—'}
                       </td>
 
                       <td className="px-5 py-4">
@@ -391,7 +429,14 @@ export const HostManagementPage = () => {
                 <Field label="Số điện thoại" value={selectedHost.soDienThoai || selectedHost.phone} />
                 <Field label="Email" value={selectedHost.email} />
                 <Field label="CCCD (bảo mật)" value={selectedHost.cccd || '056099******'} />
-                <Field label="Ngày tham gia" value={selectedHost.ngayTao || selectedHost.createdAt} />
+                <Field
+                  label="Ngày tham gia"
+                  value={
+                    selectedHost.ngayTao
+                      ? new Date(selectedHost.ngayTao).toLocaleDateString('vi-VN')
+                      : selectedHost.createdAt || 'Chưa cập nhật'
+                  }
+                />
                 <Field
                   label="Số lượng cơ sở"
                   value={`${selectedHost.soLuongCSLT ?? selectedHost.hotelCount ?? 0} cơ sở`}
@@ -416,6 +461,21 @@ export const HostManagementPage = () => {
                       </p>
                     </div>
                   ))}
+                </div>
+              ) : selectedHost.thongKeCSLT ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="rounded-xl bg-[#FAFAF9] border border-[#E5E7EB] p-3 text-center">
+                    <p className="text-xs text-[#64748B]">Đang hiển thị</p>
+                    <p className="text-lg font-bold text-emerald-600 mt-1">{selectedHost.thongKeCSLT.APPROVED || 0}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#FAFAF9] border border-[#E5E7EB] p-3 text-center">
+                    <p className="text-xs text-[#64748B]">Chờ duyệt</p>
+                    <p className="text-lg font-bold text-amber-600 mt-1">{selectedHost.thongKeCSLT.PENDING || 0}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#FAFAF9] border border-[#E5E7EB] p-3 text-center">
+                    <p className="text-xs text-[#64748B]">Bị từ chối</p>
+                    <p className="text-lg font-bold text-rose-600 mt-1">{selectedHost.thongKeCSLT.REJECTED || 0}</p>
+                  </div>
                 </div>
               ) : (
                 <p className="rounded-xl bg-[#FAFAF9] p-4 text-sm text-[#94A3B8]">

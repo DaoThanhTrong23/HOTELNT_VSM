@@ -15,10 +15,14 @@ export const ProtectedRoute = ({ allowedRoles = [] }) => {
   }
 
   if (!isAuthenticated) {
+    if (window.location.pathname.startsWith('/admin')) {
+      return <Navigate to={ROUTES.ADMIN.LOGIN} replace />;
+    }
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+  const userRole = user?.role || user?.vaiTro;
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     return <Navigate to={ROUTES.HOME} replace />;
   }
 

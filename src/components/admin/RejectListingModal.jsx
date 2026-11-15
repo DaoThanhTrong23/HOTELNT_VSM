@@ -1,4 +1,5 @@
 import { XCircle, X } from 'lucide-react';
+import { FALLBACK_HOTEL_IMAGE } from '../../utils/formatters';
 
 export const RejectListingModal = ({
   isOpen,
@@ -41,8 +42,12 @@ export const RejectListingModal = ({
         {/* Facility Card Preview */}
         <div className="p-3 rounded-2xl bg-[#F0F7FF] border border-[#E0EEFF] flex items-center gap-3.5">
           <img
-            src={displayImage}
+            src={displayImage || FALLBACK_HOTEL_IMAGE}
             alt={hotel.tenCSLT}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = FALLBACK_HOTEL_IMAGE;
+            }}
             className="w-13 h-13 rounded-xl object-cover shrink-0 border border-[#CBD5E1]"
           />
           <div className="min-w-0">

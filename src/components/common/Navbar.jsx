@@ -1,8 +1,94 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, User, Menu, X } from 'lucide-react';
+import { Search, SlidersHorizontal, User, Menu, X, LogOut, LayoutDashboard, UserCheck } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
 import { useFilter } from '../../context/FilterContext';
+import { useAuth } from '../../hooks/useAuth';
+import { BrandLogo } from './BrandLogo';
+
+const UserMenuContent = ({ isAuthenticated, isHost, isAdmin, user, onSelect, onLogout }) => {
+  if (isAuthenticated) {
+    return (
+      <>
+        <li className="px-3.5 py-2 border-b border-[#F1F5F9] mb-1">
+          <p className="text-[11px] text-[#94A3B8]">Đang đăng nhập với quyền</p>
+          <p className="text-xs font-bold text-black truncate">
+            {isHost ? (user?.hoTen || user?.name || user?.soDienThoai || 'Host') : (user?.email || 'Quản trị viên')}
+          </p>
+        </li>
+        {isHost && (
+          <>
+            <li>
+              <Link
+                to={ROUTES.HOST.DASHBOARD}
+                onClick={onSelect}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+              >
+                <LayoutDashboard size={14} />
+                Quản lý cơ sở lưu trú
+              </Link>
+            </li>
+            <li>
+              <Link
+                to={ROUTES.HOST.PROFILE}
+                onClick={onSelect}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+              >
+                <UserCheck size={14} />
+                Hồ sơ cá nhân
+              </Link>
+            </li>
+          </>
+        )}
+        {isAdmin && (
+          <li>
+            <Link
+              to={ROUTES.ADMIN.DASHBOARD}
+              onClick={onSelect}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+            >
+              <LayoutDashboard size={14} />
+              Trang quản trị (Admin)
+            </Link>
+          </li>
+        )}
+        <li className="pt-1 border-t border-[#F1F5F9] mt-1">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#FEF2F2] text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
+          >
+            <LogOut size={14} />
+            Đăng xuất
+          </button>
+        </li>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <li>
+        <Link
+          to={ROUTES.LOGIN}
+          onClick={onSelect}
+          className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
+        >
+          Đăng nhập với quyền host
+        </Link>
+      </li>
+      <li>
+        <Link
+          to={ROUTES.ADMIN.LOGIN}
+          onClick={onSelect}
+          className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
+        >
+          Đăng nhập với quyền admin
+        </Link>
+      </li>
+    </>
+  );
+};
 
 /**
  * Navbar Tourist theo Figma Design:
@@ -17,6 +103,7 @@ import { useFilter } from '../../context/FilterContext';
  * Nút lọc luôn hiển thị popup bộ lọc theo thiết kế
  */
 export const Navbar = ({ onOpenFilter }) => {
+  const { user, isAuthenticated, isHost, isAdmin, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('keyword') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -39,6 +126,13 @@ export const Navbar = ({ onOpenFilter }) => {
 
   const navigate = useNavigate();
   const filterContext = useFilter();
+
+  const handleLogout = () => {
+    logout();
+    setIsUserMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    navigate(ROUTES.HOME);
+  };
 
   // Đồng bộ ô search khi keyword trên URL thay đổi
   useEffect(() => {
@@ -86,31 +180,21 @@ export const Navbar = ({ onOpenFilter }) => {
         {/* =====================================================
             LOGO DESKTOP
         ===================================================== */}
-        <Link
-          to={ROUTES.HOME}
-          className="
-            hidden md:flex
-            items-center gap-2
-            font-black text-xl text-black
-            flex-shrink-0 tracking-tight
-          "
+        <BrandLogo
+          size="md"
           id="navbar-logo"
-        >
-          <span>LOGO</span>
-        </Link>
+          className="hidden md:flex flex-shrink-0"
+        />
 
         {/* =====================================================
             MOBILE HEADER: LOGO + MENU + USER
         ===================================================== */}
         <div className="md:hidden flex items-center justify-between w-full h-7">
           {/* Logo */}
-          <Link
-            to={ROUTES.HOME}
+          <BrandLogo
+            size="sm"
             id="navbar-mobile-logo"
-            className="font-black text-base text-black tracking-tight"
-          >
-            LOGO
-          </Link>
+          />
 
           {/* Menu + User */}
           <div className="flex items-center gap-3">
@@ -140,7 +224,7 @@ export const Navbar = ({ onOpenFilter }) => {
                 type="button"
                 id="navbar-mobile-user-icon"
                 onClick={() => setIsUserMenuOpen((prev) => !prev)}
-                title="Đăng nhập"
+                title="Tài khoản"
                 className={`
                   p-1
                   flex items-center justify-center
@@ -158,24 +242,14 @@ export const Navbar = ({ onOpenFilter }) => {
               {isUserMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <ul className="space-y-0.5">
-                    <li>
-                      <Link
-                        to={ROUTES.LOGIN}
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
-                      >
-                        Đăng nhập với quyền host
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to={ROUTES.ADMIN.LOGIN}
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
-                      >
-                        Đăng nhập với quyền admin
-                      </Link>
-                    </li>
+                    <UserMenuContent
+                      isAuthenticated={isAuthenticated}
+                      isHost={isHost}
+                      isAdmin={isAdmin}
+                      user={user}
+                      onSelect={() => setIsUserMenuOpen(false)}
+                      onLogout={handleLogout}
+                    />
                   </ul>
                 </div>
               )}
@@ -297,24 +371,14 @@ export const Navbar = ({ onOpenFilter }) => {
           {isUserMenuOpen && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
               <ul className="space-y-0.5">
-                <li>
-                  <Link
-                    to={ROUTES.LOGIN}
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
-                  >
-                    Đăng nhập với quyền host
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to={ROUTES.ADMIN.LOGIN}
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
-                  >
-                    Đăng nhập với quyền admin
-                  </Link>
-                </li>
+                <UserMenuContent
+                  isAuthenticated={isAuthenticated}
+                  isHost={isHost}
+                  isAdmin={isAdmin}
+                  user={user}
+                  onSelect={() => setIsUserMenuOpen(false)}
+                  onLogout={handleLogout}
+                />
               </ul>
             </div>
           )}
@@ -408,39 +472,16 @@ export const Navbar = ({ onOpenFilter }) => {
             Bộ lọc
           </button>
 
-          {/* Login with Host */}
-          <Link
-            to={ROUTES.LOGIN}
-            id="navbar-mobile-login-host"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="
-              block
-              px-3 py-2.5
-              rounded-lg
-              text-sm font-semibold text-black
-              hover:bg-[#F8F4E8]
-              transition-colors
-            "
-          >
-            Đăng nhập với quyền host
-          </Link>
-
-          {/* Login with Admin */}
-          <Link
-            to={ROUTES.ADMIN.LOGIN}
-            id="navbar-mobile-login-admin"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="
-              block
-              px-3 py-2.5
-              rounded-lg
-              text-sm font-semibold text-black
-              hover:bg-[#F8F4E8]
-              transition-colors
-            "
-          >
-            Đăng nhập với quyền admin
-          </Link>
+          <ul className="space-y-1 pt-1 border-t border-[#E2E8F0]">
+            <UserMenuContent
+              isAuthenticated={isAuthenticated}
+              isHost={isHost}
+              isAdmin={isAdmin}
+              user={user}
+              onSelect={() => setIsMobileMenuOpen(false)}
+              onLogout={handleLogout}
+            />
+          </ul>
         </div>
       )}
     </nav>

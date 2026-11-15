@@ -8,6 +8,7 @@ import { ROUTES } from '../../../../constants/routes';
 import { formatDate } from '../../../../utils/formatters';
 import {
   ApiError,
+  DEFAULT_MESSAGES,
   createHostListing,
   getFilterOptions,
   getHostListingDetail,
@@ -305,6 +306,7 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
   };
 
   const handleActionError = (error) => {
+    console.error('❌ [ListingEditor Error]:', error);
     const details = Array.isArray(error.details) ? error.details : [];
     if (ACCESS_ERROR_CODES.includes(error.code)) {
       setAccessError(error);
@@ -324,7 +326,15 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       setBanner({ variant: 'danger', message: error.message });
       setIsRemoved(true);
     } else if (SYSTEM_ERROR_CODES.includes(error.code)) {
-      setBanner({ variant: 'danger', message: SAVE_SYSTEM_ERROR });
+      const hasCustomMessage =
+        error.message &&
+        error.message !== DEFAULT_MESSAGES?.INTERNAL_ERROR &&
+        error.message !== DEFAULT_MESSAGES?.NETWORK_ERROR &&
+        error.message !== DEFAULT_MESSAGES?.TIMEOUT;
+      const bannerMsg = hasCustomMessage
+        ? `${SAVE_SYSTEM_ERROR} (${error.message})`
+        : SAVE_SYSTEM_ERROR;
+      setBanner({ variant: 'danger', message: bannerMsg });
     } else {
       setBanner({ variant: 'danger', message: error.message });
     }
@@ -343,8 +353,27 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
     if (!listingId) {
       try {
         const created = await createHostListing(toPayload(values, 'create'));
-        const newId = toPositiveInt(created?.maCSLT);
-        if (!newId) throw new ApiError({ code: 'INTERNAL_ERROR' });
+        console.info('✅ [createHostListing Response]:', created);
+        const newId =
+          toPositiveInt(created?.maCSLT) ??
+          toPositiveInt(created?.id) ??
+          toPositiveInt(created?.data?.maCSLT) ??
+          toPositiveInt(created?.data?.id) ??
+          toPositiveInt(created?.data?.listingId) ??
+          toPositiveInt(created?.data) ??
+          toPositiveInt(created?.listingId) ??
+          toPositiveInt(created?.maCoSoLuuTru) ??
+          toPositiveInt(created?.result?.maCSLT) ??
+          toPositiveInt(created?.result?.id) ??
+          toPositiveInt(created);
+
+        if (!newId) {
+          console.error('❌ [createHostListing] Không tìm thấy mã cơ sở trong kết quả trả về từ server:', created);
+          throw new ApiError({
+            code: 'INTERNAL_ERROR',
+            message: created?.message || 'Máy chủ phản hồi nhưng không tìm thấy mã cơ sở lưu trú (maCSLT / id).',
+          });
+        }
         setBaseline(values);
         setCreatedHere(true);
         setDetailState({ status: 'loading', error: null });
@@ -353,6 +382,7 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
         onCreated?.(newId);
         return true;
       } catch (error) {
+        console.error('❌ [save create listing failed]:', error);
         handleActionError(error);
         return false;
       }

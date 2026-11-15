@@ -9,6 +9,8 @@ import {
   Utensils,
   Car,
 } from 'lucide-react';
+import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../utils/formatters';
+import { googleMapsEmbedUrl, googleMapsDirectionsUrl } from '../../utils/geo';
 
 const amenityIconMap = {
   'Hồ bơi': Waves,
@@ -65,14 +67,18 @@ export const HotelDetailDrawer = ({
 
   if (!hotel) return null;
 
-  const displayImages =
+  const rawImages =
     hotel.media && hotel.media.length > 0
       ? hotel.media.map((m) => (typeof m === 'string' ? m : m.url))
-      : [
-          hotel.anhDaiDien ||
-            hotel.thumbnail ||
-            'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80',
-        ];
+      : [hotel.duongDanAnh || hotel.anhDaiDien || hotel.thumbnail];
+
+  const displayImages = rawImages
+    .filter(Boolean)
+    .map((u, i) => resolveHotelImageUrl(u, i) || FALLBACK_HOTEL_IMAGE);
+
+  if (displayImages.length === 0) {
+    displayImages.push(FALLBACK_HOTEL_IMAGE);
+  }
 
   const amenitiesList =
     hotel.tienIch && hotel.tienIch.length > 0
@@ -108,8 +114,12 @@ export const HotelDetailDrawer = ({
           {/* Main Photo */}
           <div className="relative w-full h-52 sm:h-56 rounded-2xl overflow-hidden bg-neutral-100 border border-[#E2E8F0]">
             <img
-              src={displayImages[activeImageIndex] || displayImages[0]}
+              src={displayImages[activeImageIndex] || displayImages[0] || FALLBACK_HOTEL_IMAGE}
               alt={hotel.tenCSLT}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = FALLBACK_HOTEL_IMAGE;
+              }}
               className="w-full h-full object-cover transition-all duration-300"
             />
           </div>
@@ -134,6 +144,10 @@ export const HotelDetailDrawer = ({
                     <img
                       src={imgUrl}
                       alt="thumbnail"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = FALLBACK_HOTEL_IMAGE;
+                      }}
                       className="w-full h-full object-cover"
                     />
                   </button>
@@ -208,26 +222,55 @@ export const HotelDetailDrawer = ({
         </div>
 
         {/* SECTION: BẢN ĐỒ VỊ TRÍ */}
-        <div className="space-y-2.5 pt-2 border-t border-[#F1F5F9]">
-          <h3 className="text-sm font-bold text-black">Bản đồ vị trí</h3>
-          <div className="relative w-full h-36 rounded-2xl overflow-hidden border border-[#CBD5E1] bg-[#F1F5F9] shadow-inner">
-            <img
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=700&auto=format&fit=crop&q=80"
-              alt="Bản đồ vị trí cơ sở"
-              className="w-full h-full object-cover filter brightness-95 contrast-105"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-              <div className="px-3.5 py-1.5 bg-white/95 backdrop-blur-xs rounded-full shadow-md border border-[#CBD5E1] flex items-center gap-1.5 text-xs font-bold text-black">
-                <MapPin size={14} className="text-rose-600 fill-rose-600" />
-                <span>
-                  {hotel.viDo && hotel.kinhDo
-                    ? `${hotel.viDo.toFixed(4)}, ${hotel.kinhDo.toFixed(4)}`
-                    : 'Nha Trang, Khánh Hòa'}
-                </span>
+        {(() => {
+          const lat = hotel.latitude ?? hotel.viDo;
+          const lng = hotel.longitude ?? hotel.kinhDo;
+          const hasCoords = lat !== null && lat !== undefined && lng !== null && lng !== undefined;
+
+          return (
+            <div className="space-y-2.5 pt-2 border-t border-[#F1F5F9]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-black">Bản đồ vị trí</h3>
+                {hasCoords && (
+                  <a
+                    href={googleMapsDirectionsUrl(lat, lng)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-semibold text-[#2563EB] hover:underline"
+                  >
+                    Mở Google Maps ↗
+                  </a>
+                )}
+              </div>
+
+              <div className="relative w-full h-40 rounded-2xl overflow-hidden border border-[#CBD5E1] bg-[#F1F5F9] shadow-inner">
+                {hasCoords ? (
+                  <iframe
+                    title={`Bản đồ ${hotel.tenCSLT}`}
+                    src={googleMapsEmbedUrl(lat, lng, 15)}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#64748B] gap-1.5 bg-[#F8FAFC]">
+                    <MapPin size={20} className="text-rose-500" />
+                    <span>Chưa cập nhật tọa độ</span>
+                  </div>
+                )}
+
+                {hasCoords && (
+                  <div className="absolute bottom-2 left-2 pointer-events-none">
+                    <div className="px-2.5 py-1 bg-white/95 backdrop-blur-xs rounded-full shadow-md border border-[#CBD5E1] flex items-center gap-1.5 text-[11px] font-bold text-black">
+                      <MapPin size={12} className="text-rose-600 fill-rose-600" />
+                      <span>{`${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* PANEL FOOTER: ACTION BUTTONS (FIGMA FRAME 16) */}

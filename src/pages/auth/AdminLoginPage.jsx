@@ -12,6 +12,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { ROUTES } from '../../constants/routes';
 import { USER_ROLES } from '../../constants/enums';
 import { authService } from '../../services/authService';
+import { SITE_CONFIG } from '../../constants/siteConfig';
+import { BrandLogo } from '../../components/common/BrandLogo';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -151,11 +153,14 @@ export const AdminLoginPage = () => {
 
       // 3. Đăng nhập trực tiếp (Không qua OTP) -> Lưu Token và chuyển hướng thẳng vào Dashboard
       const token = resData?.accessToken || 'jwt_admin_access_token_' + Date.now();
-      const adminInfo = resData?.userInfo || {
-        id: 'admin-01',
-        hoTen: 'Quản Trị Viên Hệ Thống',
+      const role = resData?.userInfo?.role || resData?.userInfo?.vaiTro || USER_ROLES.ADMIN;
+      const adminInfo = {
+        id: resData?.userInfo?.id || 'admin-01',
+        name: resData?.userInfo?.hoTen || resData?.userInfo?.name || 'Quản Trị Viên Hệ Thống',
+        hoTen: resData?.userInfo?.hoTen || resData?.userInfo?.name || 'Quản Trị Viên Hệ Thống',
         email: cleanEmail,
-        vaiTro: USER_ROLES.ADMIN,
+        role: role,
+        vaiTro: role,
       };
 
       setFailedAttempts(0);
@@ -298,16 +303,16 @@ export const AdminLoginPage = () => {
           ===================================================== */}
           <div className="hidden md:flex bg-white rounded-3xl border border-[#CBD5E1] p-6 sm:p-8 lg:p-10 shadow-xs flex-col justify-between">
             <div>
-              <p className="text-[11px] sm:text-xs font-bold text-[#64748B] tracking-wider uppercase mb-5">
-                HOTEL NHA TRANG
-              </p>
+              <div className="mb-5">
+                <BrandLogo size="md" />
+              </div>
 
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-black leading-snug tracking-tight mb-3">
-                Quản lý hệ thống<br className="hidden sm:inline" /> lưu trữ một cách<br className="hidden sm:inline" /> hiệu quả
+                Quản lý hệ thống<br className="hidden sm:inline" /> lưu trú một cách<br className="hidden sm:inline" /> hiệu quả
               </h1>
 
               <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed mb-6">
-                Nền tảng quản trị dành cho đội ngũ Hotel Nha Trang
+                Nền tảng quản trị dành cho đội ngũ {SITE_CONFIG.brand.name}
               </p>
 
               {/* CHECKLIST TÍNH NĂNG */}
@@ -337,7 +342,7 @@ export const AdminLoginPage = () => {
 
             {/* Chân card trái */}
             <div className="pt-8 text-[11px] text-[#64748B]">
-              Hệ thống bảo mật nội bộ © {CURRENT_YEAR} Hotel Nha Trang
+              Hệ thống bảo mật nội bộ © {CURRENT_YEAR} {SITE_CONFIG.brand.name}
             </div>
           </div>
 
