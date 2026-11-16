@@ -67,26 +67,15 @@ const UserMenuContent = ({ isAuthenticated, isHost, isAdmin, user, onSelect, onL
   }
 
   return (
-    <>
-      <li>
-        <Link
-          to={ROUTES.LOGIN}
-          onClick={onSelect}
-          className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
-        >
-          Đăng nhập với quyền host
-        </Link>
-      </li>
-      <li>
-        <Link
-          to={ROUTES.ADMIN.LOGIN}
-          onClick={onSelect}
-          className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
-        >
-          Đăng nhập với quyền admin
-        </Link>
-      </li>
-    </>
+    <li>
+      <Link
+        to={ROUTES.LOGIN}
+        onClick={onSelect}
+        className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
+      >
+        Đăng nhập
+      </Link>
+    </li>
   );
 };
 
@@ -218,40 +207,53 @@ export const Navbar = ({ onOpenFilter }) => {
               {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
             </button>
 
-            {/* User icon with Dropdown (Host & Admin) */}
+            {/* User icon: Direct Link to Host Login if unauthenticated, or Dropdown if authenticated */}
             <div ref={mobileUserMenuRef} className="relative">
-              <button
-                type="button"
-                id="navbar-mobile-user-icon"
-                onClick={() => setIsUserMenuOpen((prev) => !prev)}
-                title="Tài khoản"
-                className={`
-                  p-1
-                  flex items-center justify-center
-                  rounded-md
-                  transition-colors
-                  cursor-pointer
-                  ${isUserMenuOpen ? 'bg-black text-white' : 'text-black hover:text-gray-500'}
-                `}
-                aria-expanded={isUserMenuOpen}
-              >
-                <User size={18} />
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <button
+                    type="button"
+                    id="navbar-mobile-user-icon"
+                    onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                    title="Tài khoản"
+                    className={`
+                      p-1
+                      flex items-center justify-center
+                      rounded-md
+                      transition-colors
+                      cursor-pointer
+                      ${isUserMenuOpen ? 'bg-black text-white' : 'text-black hover:text-gray-500'}
+                    `}
+                    aria-expanded={isUserMenuOpen}
+                  >
+                    <User size={18} />
+                  </button>
 
-              {/* Mobile User Dropdown Popover */}
-              {isUserMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <ul className="space-y-0.5">
-                    <UserMenuContent
-                      isAuthenticated={isAuthenticated}
-                      isHost={isHost}
-                      isAdmin={isAdmin}
-                      user={user}
-                      onSelect={() => setIsUserMenuOpen(false)}
-                      onLogout={handleLogout}
-                    />
-                  </ul>
-                </div>
+                  {/* Mobile User Dropdown Popover */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <ul className="space-y-0.5">
+                        <UserMenuContent
+                          isAuthenticated={isAuthenticated}
+                          isHost={isHost}
+                          isAdmin={isAdmin}
+                          user={user}
+                          onSelect={() => setIsUserMenuOpen(false)}
+                          onLogout={handleLogout}
+                        />
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link
+                  to={ROUTES.LOGIN}
+                  id="navbar-mobile-user-icon"
+                  title="Đăng nhập"
+                  className="p-1 flex items-center justify-center rounded-md text-black hover:text-gray-500 transition-colors"
+                >
+                  <User size={18} />
+                </Link>
               )}
             </div>
           </div>
@@ -341,46 +343,66 @@ export const Navbar = ({ onOpenFilter }) => {
         </div>
 
         {/* =====================================================
-            USER ICON DESKTOP + DROPDOWN (UL / LI)
+            USER ICON DESKTOP: DIRECT LINK TO HOST LOGIN OR DROPDOWN IF AUTHENTICATED
         ===================================================== */}
         <div ref={userMenuRef} className="hidden md:flex items-center gap-2 flex-shrink-0 ml-auto relative">
-          <button
-            type="button"
-            id="navbar-user-icon"
-            onClick={() => setIsUserMenuOpen((prev) => !prev)}
-            aria-expanded={isUserMenuOpen}
-            aria-haspopup="true"
-            title="Đăng nhập"
-            className={`
-              w-9 h-9
-              rounded-full
-              flex items-center justify-center
-              transition-all
-              cursor-pointer
-              ${
-                isUserMenuOpen
-                  ? 'bg-black text-white shadow-xs'
-                  : 'text-[#64748B] hover:text-black hover:bg-[#F8F4E8]'
-              }
-            `}
-          >
-            <User size={20} />
-          </button>
+          {isAuthenticated ? (
+            <>
+              <button
+                type="button"
+                id="navbar-user-icon"
+                onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="true"
+                title="Tài khoản"
+                className={`
+                  w-9 h-9
+                  rounded-full
+                  flex items-center justify-center
+                  transition-all
+                  cursor-pointer
+                  ${
+                    isUserMenuOpen
+                      ? 'bg-black text-white shadow-xs'
+                      : 'text-[#64748B] hover:text-black hover:bg-[#F8F4E8]'
+                  }
+                `}
+              >
+                <User size={20} />
+              </button>
 
-          {/* DROPDOWN MENU UL / LI */}
-          {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <ul className="space-y-0.5">
-                <UserMenuContent
-                  isAuthenticated={isAuthenticated}
-                  isHost={isHost}
-                  isAdmin={isAdmin}
-                  user={user}
-                  onSelect={() => setIsUserMenuOpen(false)}
-                  onLogout={handleLogout}
-                />
-              </ul>
-            </div>
+              {/* DROPDOWN MENU UL / LI */}
+              {isUserMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <ul className="space-y-0.5">
+                    <UserMenuContent
+                      isAuthenticated={isAuthenticated}
+                      isHost={isHost}
+                      isAdmin={isAdmin}
+                      user={user}
+                      onSelect={() => setIsUserMenuOpen(false)}
+                      onLogout={handleLogout}
+                    />
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <Link
+              to={ROUTES.LOGIN}
+              id="navbar-user-icon"
+              title="Đăng nhập"
+              className="
+                w-9 h-9
+                rounded-full
+                flex items-center justify-center
+                text-[#64748B] hover:text-black hover:bg-[#F8F4E8]
+                transition-all
+                cursor-pointer
+              "
+            >
+              <User size={20} />
+            </Link>
           )}
         </div>
 
@@ -473,14 +495,35 @@ export const Navbar = ({ onOpenFilter }) => {
           </button>
 
           <ul className="space-y-1 pt-1 border-t border-[#E2E8F0]">
-            <UserMenuContent
-              isAuthenticated={isAuthenticated}
-              isHost={isHost}
-              isAdmin={isAdmin}
-              user={user}
-              onSelect={() => setIsMobileMenuOpen(false)}
-              onLogout={handleLogout}
-            />
+            {isAuthenticated ? (
+              <UserMenuContent
+                isAuthenticated={isAuthenticated}
+                isHost={isHost}
+                isAdmin={isAdmin}
+                user={user}
+                onSelect={() => setIsMobileMenuOpen(false)}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <li>
+                <Link
+                  to={ROUTES.LOGIN}
+                  id="navbar-mobile-login-link"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="
+                    flex items-center gap-2
+                    px-3 py-2.5
+                    rounded-lg
+                    text-sm font-semibold text-black
+                    hover:bg-[#F8F4E8]
+                    transition-colors
+                  "
+                >
+                  <User size={16} />
+                  Đăng nhập
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
       )}
