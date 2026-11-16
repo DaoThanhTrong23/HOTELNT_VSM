@@ -139,6 +139,13 @@ Tổng: 3 Pass (mock), 8 Fail (mock), 0 Error. Giống nhau qua mọi lần ch�
 - Hai unit test trong `e2e/support/__tests__/` chạy ở môi trường `node` (`// @vitest-environment node`), vì config gốc dùng jsdom và `import.meta.url` không phải `file:`.
 - TDD: unit test soft-check và 8 spec Danh sách được viết trước, nhưng lần chạy đỏ chỉ làm cho Phase 1, smoke (thiếu `baseUrl`) và `sheet-rows`. Soft-check và page object Danh sách được viết ngay sau test, không chạy bước đỏ riêng.
 
+### Cập nhật 2026-11-16: đã chạy với backend
+
+- Backend Azure đã sửa lỗi token. 11 case chạy vào Azure bằng tài khoản Host test riêng: 3 Pass, 8 Fail, 0 Error. Các case Fail giống trên mock, riêng TC_HDB_01 có thêm ý thumbnail bị vỡ (đường dẫn ảnh tương đối, `deverlop` đã sửa).
+- PR #3 conflict với `deverlop` ở `hostMockApi.js`, `hostMockApi.test.jsx`, `package-lock.json`. Khi resolve phải xóa dòng mock thừa trong `getHostListings` của `hostApi.js`.
+- Chi tiết, dữ liệu test và cách resolve: `plans/reports/261116-1141-host-e2e-azure-backend-run-report.md`.
+- Sau đó: đã merge `deverlop` vào nhánh (`44c5961`) và Quân chốt sửa giao diện theo đúng sheet (đảo lại "Không làm" của plan này). Chạy với backend: 10 Pass, 1 Fail (TC_PRF_03, ý mật khẩu cũ, không làm được vì backend kiểm mật khẩu mới trước). Chi tiết ở mục "Cập nhật 12:20" của báo cáo trên.
+
 ### Còn lại (cập nhật 2026-11-10)
 
 - Đã push 5 commit lên `origin/feature/quan-dashbds`. PR #3 vào `deverlop` đang mở cho cùng cặp nhánh, nên các commit này vào PR #3, không mở PR mới. Tiêu đề và mô tả PR #3 đã có thêm phần E2E.
