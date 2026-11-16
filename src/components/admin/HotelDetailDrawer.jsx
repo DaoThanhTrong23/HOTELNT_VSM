@@ -67,18 +67,35 @@ export const HotelDetailDrawer = ({
 
   if (!hotel) return null;
 
-  const rawImages =
-    hotel.media && hotel.media.length > 0
-      ? hotel.media.map((m) => (typeof m === 'string' ? m : m.url))
-      : [hotel.duongDanAnh || hotel.anhDaiDien || hotel.thumbnail];
+  const storedCustomMedia = typeof localStorage !== 'undefined'
+    ? (() => {
+        try {
+          const raw = localStorage.getItem(`hotelnt_custom_media_${hotel.maCSLT}`);
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
 
-  const displayImages = rawImages
-    .filter(Boolean)
-    .map((u, i) => resolveHotelImageUrl(u, i) || FALLBACK_HOTEL_IMAGE);
+  const rawList =
+    (storedCustomMedia && storedCustomMedia.length > 0 && storedCustomMedia) ||
+    (hotel.media && hotel.media.length > 0 && hotel.media) ||
+    (hotel.hinhAnh && hotel.hinhAnh.length > 0 && hotel.hinhAnh) ||
+    (hotel.danhSachAnh && hotel.danhSachAnh.length > 0 && hotel.danhSachAnh) ||
+    (hotel.images && hotel.images.length > 0 && hotel.images) ||
+    (hotel.duongDanAnh ? [{ url: hotel.duongDanAnh }] : []);
 
-  if (displayImages.length === 0) {
-    displayImages.push(FALLBACK_HOTEL_IMAGE);
-  }
+  const rawImages = rawList
+    .map((m) => {
+      if (typeof m === 'string') return m;
+      return m.dataUrl || m.localPreviewUrl || m.url || m.duongDan || m.duongDanAnh || '';
+    })
+    .filter(Boolean);
+
+  const displayImages = rawImages.length > 0
+    ? rawImages.map((u, i) => resolveHotelImageUrl(u, i) || FALLBACK_HOTEL_IMAGE)
+    : [FALLBACK_HOTEL_IMAGE];
 
   const amenitiesList =
     hotel.tienIch && hotel.tienIch.length > 0
@@ -122,28 +139,33 @@ export const HotelDetailDrawer = ({
               }}
               className="w-full h-full object-cover transition-all duration-300"
             />
+            {displayImages.length > 1 && (
+              <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-xs text-white text-[11px] font-medium pointer-events-none shadow-xs">
+                Ảnh {activeImageIndex + 1}/{displayImages.length}
+              </span>
+            )}
           </div>
 
-          {/* Thumbnails row */}
+          {/* Thumbnails row - Hiển thị TẤT CẢ các ảnh, bao gồm cả ảnh đầu tiên */}
           {displayImages.length > 1 && (
-            <div className="grid grid-cols-3 gap-2">
-              {displayImages.slice(1, 4).map((imgUrl, idx) => {
-                const realIndex = idx + 1;
-                const isActive = activeImageIndex === realIndex;
+            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+              {displayImages.map((imgUrl, idx) => {
+                const isActive = activeImageIndex === idx;
                 return (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setActiveImageIndex(realIndex)}
-                    className={`relative h-20 rounded-xl overflow-hidden border-2 transition cursor-pointer ${
+                    onClick={() => setActiveImageIndex(idx)}
+                    aria-label={`Xem ảnh ${idx + 1}`}
+                    className={`relative w-20 h-16 sm:w-24 sm:h-18 rounded-xl overflow-hidden shrink-0 border-2 transition cursor-pointer ${
                       isActive
-                        ? 'border-black shadow-xs'
-                        : 'border-transparent hover:border-[#CBD5E1]'
+                        ? 'border-black ring-2 ring-black/20 shadow-xs scale-98'
+                        : 'border-transparent opacity-75 hover:opacity-100 hover:border-[#CBD5E1]'
                     }`}
                   >
                     <img
                       src={imgUrl}
-                      alt="thumbnail"
+                      alt={`thumbnail ${idx + 1}`}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.src = FALLBACK_HOTEL_IMAGE;

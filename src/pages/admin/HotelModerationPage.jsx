@@ -241,14 +241,29 @@ export const HotelModerationPage = () => {
   // Extract display images safely
   const displayImages = useMemo(() => {
     if (!selectedHotel) return [FALLBACK_HOTEL_IMAGE];
-    const raw =
-      selectedHotel.media && selectedHotel.media.length > 0
-        ? selectedHotel.media.map((m) => (typeof m === 'string' ? m : m.url))
-        : selectedHotel.images && selectedHotel.images.length > 0
-        ? selectedHotel.images
-        : selectedHotel.duongDanAnh
-        ? [selectedHotel.duongDanAnh]
-        : [];
+    let custom = null;
+    try {
+      const rawStored = localStorage.getItem(`hotelnt_custom_media_${selectedHotel.maCSLT}`);
+      if (rawStored) custom = JSON.parse(rawStored);
+    } catch {
+      /* ignore */
+    }
+
+    const rawList =
+      (custom && custom.length > 0 && custom) ||
+      (selectedHotel.media && selectedHotel.media.length > 0 && selectedHotel.media) ||
+      (selectedHotel.hinhAnh && selectedHotel.hinhAnh.length > 0 && selectedHotel.hinhAnh) ||
+      (selectedHotel.danhSachAnh && selectedHotel.danhSachAnh.length > 0 && selectedHotel.danhSachAnh) ||
+      (selectedHotel.images && selectedHotel.images.length > 0 && selectedHotel.images) ||
+      (selectedHotel.duongDanAnh ? [{ url: selectedHotel.duongDanAnh }] : []);
+
+    const raw = rawList
+      .map((m) => {
+        if (typeof m === 'string') return m;
+        return m.dataUrl || m.localPreviewUrl || m.url || m.duongDan || m.duongDanAnh || '';
+      })
+      .filter(Boolean);
+
     if (raw.length === 0) return [FALLBACK_HOTEL_IMAGE];
     return raw.map((u, i) => resolveHotelImageUrl(u, i) || FALLBACK_HOTEL_IMAGE);
   }, [selectedHotel]);
