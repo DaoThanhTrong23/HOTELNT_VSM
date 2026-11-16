@@ -92,7 +92,10 @@ const MEDIA_STORAGE_KEY_PREFIX = 'hotelnt_custom_media_';
 const getStoredMedia = (id) => {
   if (!id) return null;
   try {
-    const raw = localStorage.getItem(`${MEDIA_STORAGE_KEY_PREFIX}${id}`);
+    let raw = localStorage.getItem(`${MEDIA_STORAGE_KEY_PREFIX}${id}`);
+    if (!raw && id !== 'draft') {
+      raw = localStorage.getItem(`${MEDIA_STORAGE_KEY_PREFIX}draft`);
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
@@ -206,7 +209,21 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
         const formValues = toFormValues(data);
         const serverMedia = sortMedia(data?.media || data?.hinhAnh || data?.danhSachAnh);
         const stored = getStoredMedia(listingId);
-        const sortedMedia = stored && stored.length > 0 ? stored : serverMedia;
+        let sortedMedia = serverMedia;
+        if (stored && stored.length > 0) {
+          if (serverMedia.length > 0) {
+            sortedMedia = serverMedia.map((srv, idx) => {
+              const match = stored.find((st) => st.mediaId === srv.mediaId) || stored[idx];
+              return {
+                ...srv,
+                dataUrl: match?.dataUrl || srv.dataUrl || null,
+                localPreviewUrl: match?.localPreviewUrl || match?.dataUrl || srv.localPreviewUrl || null,
+              };
+            });
+          } else {
+            sortedMedia = stored;
+          }
+        }
         setDetail(data);
         setValues(formValues);
         setBaseline(formValues);

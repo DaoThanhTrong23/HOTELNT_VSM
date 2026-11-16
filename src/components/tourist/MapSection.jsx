@@ -4,27 +4,140 @@ import { Navigation, Plus, Minus, RotateCcw, MapPin } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { listingService } from '../../services/listingService';
+import { adminService } from '../../services/adminService';
 import { MAP_PINS } from '../../data/mockHotels';
 import {
   formatCurrency,
   resolveHotelImageUrl,
+  DEFAULT_HOTEL_IMAGES,
   FALLBACK_HOTEL_IMAGE,
 } from '../../utils/formatters';
 
 const NHA_TRANG_CENTER = [12.2451, 109.1943];
 const DEFAULT_ZOOM = 13;
 
-const FALLBACK_LOCATIONS = [
-  { lat: 12.2451, lng: 109.1943 },
-  { lat: 12.2400, lng: 109.1950 },
-  { lat: 12.2500, lng: 109.1900 },
-  { lat: 12.2700, lng: 109.2100 },
-  { lat: 12.2350, lng: 109.1980 },
+// Các tọa độ thực tế đẹp tại TP. Nha Trang cho các cơ sở chưa có tọa độ GPS trong CSDL
+const SPREAD_LOCATIONS = [
+  { lat: 12.2388, lng: 109.1967, name: 'Trung tâm Nha Trang' },
+  { lat: 12.2451, lng: 109.1943, name: 'Đường Trần Phú' },
+  { lat: 12.2400, lng: 109.1950, name: 'Bãi biển Nha Trang' },
+  { lat: 12.2500, lng: 109.1900, name: 'Khu vực Chợ Đầm' },
+  { lat: 12.2700, lng: 109.2100, name: 'Đường Phạm Văn Đồng' },
+  { lat: 12.2350, lng: 109.1980, name: 'Khu phố Tây Tuệ Tĩnh' },
+  { lat: 12.2280, lng: 109.2010, name: 'Khu vực Cầu Đá' },
+  { lat: 12.2150, lng: 109.2180, name: 'Đảo Hòn Tre (Vinpearl)' },
+  { lat: 12.2580, lng: 109.1850, name: 'Tháp Bà Ponagar' },
+  { lat: 12.2850, lng: 109.2050, name: 'Bến du thuyền Ana Marina' },
+  { lat: 12.2420, lng: 109.1920, name: 'Đường Nguyễn Thị Minh Khai' },
+  { lat: 12.2480, lng: 109.1960, name: 'Quảng trường 2/4' },
 ];
 
 /**
- * Component MapSection hiển thị bản đồ Google Maps tương tác
- * với các dấu chỉ vị trí (Google Red Pins) của tất cả khách sạn trong CSDL.
+ * Quét toàn bộ cơ sở từ CSDL, API du khách, API admin và local drafts
+ */
+const fetchAllSystemFacilities = async () => {
+  const facilityMap = new Map();
+
+  const addFacility = (item) => {
+    if (!item) return;
+    const id = item.maCSLT || item.id;
+    if (!id) return;
+    const existing = facilityMap.get(id);
+    facilityMap.set(id, {
+      ...existing,
+      ...item,
+      maCSLT: id,
+      id,
+      tenCSLT: item.tenCSLT || item.name || existing?.tenCSLT || 'Cơ sở lưu trú',
+      tenLoai: item.tenLoai || item.type || existing?.tenLoai || 'Khách sạn',
+      gia: item.gia || item.price || existing?.gia || null,
+      latitude: item.latitude ?? item.viDo ?? item.lat ?? existing?.latitude,
+      longitude: item.longitude ?? item.kinhDo ?? item.lng ?? existing?.longitude,
+      duongDanAnh: item.duongDanAnh || item.thumbnail || item.url || existing?.duongDanAnh || '',
+      trangThai: item.trangThai || item.status || existing?.trangThai || 'APPROVED',
+    });
+  };
+
+  // 1. Quét map markers từ API du khách
+  try {
+    const markerRes = await listingService.getMapMarkers();
+    const markers =
+      markerRes?.markers || markerRes?.items || markerRes?.data || (Array.isArray(markerRes) ? markerRes : []);
+    markers.forEach(addFacility);
+  } catch (err) {
+    console.warn('Lỗi lấy map-markers:', err);
+  }
+
+  // 2. Quét toàn bộ listings công khai từ /listings?limit=50
+  try {
+    const listRes = await listingService.searchListings({ limit: 50 });
+    const items = listRes?.items || listRes?.listings || (Array.isArray(listRes) ? listRes : []);
+    items.forEach(addFacility);
+  } catch (err) {
+    console.warn('Lỗi searchListings:', err);
+  }
+
+  // 3. Nếu đang ở portal Admin (hoặc có token), quét thêm toàn bộ cơ sở của admin
+  try {
+    const adminRes = await adminService.getListings({ limit: 50 });
+    const adminItems = adminRes?.items || (Array.isArray(adminRes) ? adminRes : []);
+    adminItems.forEach(addFacility);
+  } catch {
+    /* ignore unauthenticated admin endpoint */
+  }
+
+  // 4. Quét localStorage để bổ sung các cơ sở host mới tạo hoặc bản nháp (nếu có)
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('hotelnt_custom_media_') || key.startsWith('host_listings'))) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                const idMatch = key.replace('hotelnt_custom_media_', '');
+                if (idMatch && idMatch !== 'draft' && !facilityMap.has(Number(idMatch))) {
+                  addFacility({
+                    maCSLT: Number(idMatch),
+                    tenCSLT: `Cơ sở #${idMatch}`,
+                    tenLoai: 'Khách sạn',
+                    duongDanAnh: parsed[0]?.dataUrl || parsed[0]?.url || '',
+                  });
+                }
+              }
+            } catch {
+              /* ignore parse errors */
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    /* ignore storage errors */
+  }
+
+  // Nếu API chưa có dữ liệu nào, fallback sang MAP_PINS mẫu
+  if (facilityMap.size === 0) {
+    MAP_PINS.forEach((pin, idx) => {
+      addFacility({
+        maCSLT: pin.id || idx + 1,
+        tenCSLT: pin.name || pin.label,
+        tenLoai: pin.type || 'Khách sạn',
+        gia: pin.price || null,
+        latitude: SPREAD_LOCATIONS[idx % SPREAD_LOCATIONS.length].lat,
+        longitude: SPREAD_LOCATIONS[idx % SPREAD_LOCATIONS.length].lng,
+      });
+    });
+  }
+
+  return Array.from(facilityMap.values());
+};
+
+/**
+ * Component MapSection hiển thị bản đồ tương tác
+ * với các dấu chỉ vị trí (Pins) của TẤT CẢ cơ sở lưu trú hiện có trong hệ thống.
  */
 export const MapSection = ({
   pins: initialPins,
@@ -38,7 +151,7 @@ export const MapSection = ({
   const markersLayerRef = useRef(null);
   const [markers, setMarkers] = useState(initialPins || []);
 
-  // 1. Tải danh sách markers từ API /listings/map-markers
+  // 1. Tải toàn bộ danh sách cơ sở lưu trú hiện có
   useEffect(() => {
     if (initialPins && initialPins.length > 0) {
       setMarkers(initialPins);
@@ -46,33 +159,18 @@ export const MapSection = ({
     }
 
     let isMounted = true;
-    const fetchMarkers = async () => {
-      try {
-        const res = await listingService.getMapMarkers();
-        const data =
-          res?.markers || res?.items || res?.data || (Array.isArray(res) ? res : []);
-        if (isMounted) {
-          if (data && data.length > 0) {
-            setMarkers(data);
-          } else {
-            setMarkers(MAP_PINS);
-          }
-        }
-      } catch (err) {
-        console.warn('Lỗi khi tải map markers từ listingService, fallback MAP_PINS:', err);
-        if (isMounted) {
-          setMarkers(MAP_PINS);
-        }
+    fetchAllSystemFacilities().then((allListings) => {
+      if (isMounted && allListings && allListings.length > 0) {
+        setMarkers(allListings);
       }
-    };
+    });
 
-    fetchMarkers();
     return () => {
       isMounted = false;
     };
   }, [initialPins]);
 
-  // 2. Khởi tạo bản đồ Google Maps Tiles qua Leaflet
+  // 2. Khởi tạo bản đồ OpenStreetMap qua Leaflet (100% tin cậy, không bị Brave Shields chặn)
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -84,16 +182,13 @@ export const MapSection = ({
         scrollWheelZoom: true,
       });
 
-      // Lớp bản đồ Google Maps (lyrs=m: roadmap tiêu chuẩn tiếng Việt)
-      L.tileLayer(
-        'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-        {
-          attribution:
-            '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a>',
-          maxZoom: 20,
-          subdomains: ['0', '1', '2', '3'],
-        }
-      ).addTo(map);
+      // Lớp bản đồ OpenStreetMap chuẩn (ổn định, không bị CORS, không bị adblocker chặn)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c'],
+      }).addTo(map);
 
       markersLayerRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
@@ -146,7 +241,7 @@ export const MapSection = ({
 
       // Nếu không có tọa độ số hợp lệ, dùng vị trí mẫu trong Nha Trang
       if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-        const fallback = FALLBACK_LOCATIONS[index % FALLBACK_LOCATIONS.length];
+        const fallback = SPREAD_LOCATIONS[index % SPREAD_LOCATIONS.length];
         lat = fallback.lat;
         lng = fallback.lng;
       }

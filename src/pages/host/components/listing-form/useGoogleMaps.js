@@ -27,8 +27,9 @@ export const loadGoogleMaps = (apiKey) => {
 };
 
 const readApiKey = () => {
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  return key && key !== PLACEHOLDER_KEY ? key : '';
+  const rawKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const key = rawKey.trim();
+  return key && key !== PLACEHOLDER_KEY && !key.includes('your_google_maps_api_key') ? key : '';
 };
 
 // status: 'no-key' | 'loading' | 'ready' | 'error'
