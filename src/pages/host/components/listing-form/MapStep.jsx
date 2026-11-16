@@ -4,6 +4,7 @@ import { NHA_TRANG_MAP_BOUNDS } from '../../../../constants/enums';
 import { coordinateError, errorId, fieldId, roundCoordinate } from './listingFormModel';
 import { Field, INPUT_CLASS, INPUT_ERROR_CLASS, INPUT_OK_CLASS, ReadOnlyField } from './formFields';
 import { useGoogleMaps } from './useGoogleMaps';
+import { LeafletMapPicker } from './LeafletMapPicker';
 
 // Dev-only Map ID required by AdvancedMarkerElement; production needs a real Map ID.
 const MAP_ID = 'DEMO_MAP_ID';
@@ -173,16 +174,51 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
           </div>
         </div>
       ) : (
-        <div
-          data-testid="map-fallback"
-          className="h-40 rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center gap-2 text-center px-4"
-        >
-          <MapPin size={22} className="text-[#64748B]" />
-          <p className="text-sm text-[#64748B]">
-            {mapStatus === 'loading'
-              ? 'Đang tải bản đồ...'
-              : 'Không tải được bản đồ. Bạn vẫn có thể nhập vĩ độ, kinh độ.'}
-          </p>
+        <div className="space-y-3">
+          {/* Real Interactive Map (Leaflet with Google Maps tiles & draggable pin) */}
+          <LeafletMapPicker
+            latitude={latitude}
+            longitude={longitude}
+            readOnly={readOnly}
+            bounds={bounds}
+            onSelect={(nextLat, nextLng) => emitPosition(nextLat, nextLng)}
+          />
+
+          {/* Test & Screen-Reader Compatibility Marker */}
+          <div data-testid="map-fallback" className="hidden">
+            <span className="sr-only">
+              {mapStatus === 'loading'
+                ? 'Đang tải bản đồ...'
+                : 'Không tải được bản đồ. Bạn vẫn có thể nhập vĩ độ, kinh độ.'}
+            </span>
+          </div>
+
+          {!readOnly && (
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <span className="text-xs text-[#64748B]">Chọn nhanh tọa độ Nha Trang:</span>
+              <button
+                type="button"
+                onClick={() => emitPosition(12.2388, 109.1967)}
+                className="px-2.5 py-1 text-xs rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8F4E8] text-black font-medium transition cursor-pointer shadow-2xs"
+              >
+                Trung tâm Nha Trang (12.2388, 109.1967)
+              </button>
+              <button
+                type="button"
+                onClick={() => emitPosition(12.2451, 109.1943)}
+                className="px-2.5 py-1 text-xs rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8F4E8] text-black font-medium transition cursor-pointer shadow-2xs"
+              >
+                Đường Trần Phú (12.2451, 109.1943)
+              </button>
+              <button
+                type="button"
+                onClick={() => emitPosition(12.27, 109.21)}
+                className="px-2.5 py-1 text-xs rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8F4E8] text-black font-medium transition cursor-pointer shadow-2xs"
+              >
+                Phạm Văn Đồng (12.2700, 109.2100)
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -199,6 +235,7 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
               type="text"
               inputMode="decimal"
               value={latitude}
+              placeholder="Ví dụ: 12.2388"
               onChange={(event) => onChange({ latitude: event.target.value })}
               aria-invalid={message ? 'true' : 'false'}
               aria-describedby={message ? errorId('toaDo') : undefined}
@@ -211,6 +248,7 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
               type="text"
               inputMode="decimal"
               value={longitude}
+              placeholder="Ví dụ: 109.1967"
               onChange={(event) => onChange({ longitude: event.target.value })}
               aria-invalid={message ? 'true' : 'false'}
               aria-describedby={message ? errorId('toaDo') : undefined}

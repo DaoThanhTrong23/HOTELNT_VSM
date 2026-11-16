@@ -1,8 +1,72 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Play, X } from 'lucide-react';
 import { MEDIA_LIMITS } from '../../../../constants/enums';
-import { resolveHotelImageUrl } from '../../../../utils/formatters';
 import { deleteListingMedia, isCanceled, uploadListingMedia } from '../../api/hostApi';
+import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE, DEFAULT_HOTEL_IMAGES } from '../../../../utils/formatters';
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve) => {
+    if (!file || !(file instanceof Blob)) {
+      resolve('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result || '');
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+
+const createCompressedDataUrl = async (file) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || typeof Image === 'undefined') {
+    return readFileAsDataUrl(file);
+  }
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const tempUrl = typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
+      if (!tempUrl) {
+        readFileAsDataUrl(file).then(resolve);
+        return;
+      }
+      img.onload = () => {
+        try {
+          if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(tempUrl);
+          let width = img.width || 800;
+          let height = img.height || 600;
+          const maxDim = 1000;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext?.('2d');
+          if (!ctx) {
+            readFileAsDataUrl(file).then(resolve);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        } catch {
+          readFileAsDataUrl(file).then(resolve);
+        }
+      };
+      img.onerror = () => {
+        if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(tempUrl);
+        readFileAsDataUrl(file).then(resolve);
+      };
+      img.src = tempUrl;
+    } catch {
+      readFileAsDataUrl(file).then(resolve);
+    }
+  });
+};
 
 const MB = 1024 * 1024;
 const RULES = {
@@ -105,9 +169,11 @@ export const MediaStep = ({
   const updateEntry = (localId, patch) =>
     setEntries((prev) => prev.map((entry) => (entry.localId === localId ? { ...entry, ...patch } : entry)));
 
-  const removeEntry = (localId) => {
-    revokePreview(previewsRef.current.get(localId));
-    previewsRef.current.delete(localId);
+  const removeEntry = (localId, keepPreview = false) => {
+    if (!keepPreview) {
+      revokePreview(previewsRef.current.get(localId));
+      previewsRef.current.delete(localId);
+    }
     setEntries((prev) => prev.filter((entry) => entry.localId !== localId));
   };
 
@@ -133,9 +199,15 @@ export const MediaStep = ({
           },
         );
         if (!mountedRef.current) break;
-        removeEntry(entry.localId);
+        const localPreview = entry.dataUrl || previewsRef.current.get(entry.localId) || entry.previewUrl;
+        removeEntry(entry.localId, true);
         uploadedCount += 1;
-        latestRef.current.onUploaded?.(uploaded);
+        const enrichedUploaded = {
+          ...uploaded,
+          dataUrl: localPreview,
+          localPreviewUrl: localPreview,
+        };
+        latestRef.current.onUploaded?.(enrichedUploaded);
       } catch (err) {
         if (!mountedRef.current) break;
         if (controller.signal.aborted || isCanceled(err)) {
@@ -175,6 +247,17 @@ export const MediaStep = ({
       const localId = `local-${localIdRef.current}`;
       const previewUrl = !error && type === 'IMAGE' ? createPreview(file) : null;
       if (previewUrl) previewsRef.current.set(localId, previewUrl);
+
+      // Async: tạo ảnh nén base64 (dataUrl) để không bao giờ bị mất/thu hồi và lưu được vào localStorage
+      if (!error && type === 'IMAGE') {
+        createCompressedDataUrl(file).then((dUrl) => {
+          if (dUrl && mountedRef.current) {
+            previewsRef.current.set(localId, dUrl);
+            updateEntry(localId, { previewUrl: dUrl, dataUrl: dUrl });
+          }
+        });
+      }
+
       return { localId, file, name: file.name, size: file.size, type, status: error ? 'invalid' : 'queued', progress: 0, error, previewUrl };
     });
 
@@ -200,6 +283,9 @@ export const MediaStep = ({
     setDeletingIds((prev) => [...prev, item.mediaId]);
     try {
       const response = await deleteListingMedia(maCSLT, item.mediaId);
+      if (item.localPreviewUrl) {
+        revokePreview(item.localPreviewUrl);
+      }
       onDeleted?.(item.mediaId, response);
     } catch (err) {
       if (err.code === 'MIN_IMAGES_REQUIRED') {
@@ -294,53 +380,77 @@ export const MediaStep = ({
 
         {images.length + localImages.length > 0 ? (
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" aria-label="Danh sách ảnh">
-            {images.map((item, index) => (
-              <li
-                key={item.mediaId}
-                data-testid="server-image"
-                draggable={!readOnly}
-                onDragStart={() => setDragIndex(index)}
-                onDragOver={(event) => {
-                  if (!readOnly) event.preventDefault();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  moveImage(dragIndex, index);
-                  setDragIndex(null);
-                }}
-                className={`group relative aspect-4/3 rounded-lg overflow-hidden bg-[#CBD5E1] ${readOnly ? '' : 'cursor-grab'}`}
-              >
-                <img src={resolveHotelImageUrl(item.url)} alt={`Ảnh ${index + 1}`} loading="lazy" className="w-full h-full object-cover" />
-                {index === 0 && (
-                  <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white text-[11px] font-medium text-black">
-                    Ảnh bìa
-                  </span>
-                )}
-                {!readOnly && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={`Xóa ảnh ${index + 1}`}
-                      disabled={deletingIds.includes(item.mediaId)}
-                      onClick={() => deleteServerMedia(item)}
-                      className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-40"
-                    >
-                      <X size={14} />
-                    </button>
-                    {index > 0 && (
+            {images.map((item, index) => {
+              const rawUrl = item.url || item.duongDan || item.duongDanAnh;
+              const fallbackSrc = DEFAULT_HOTEL_IMAGES[index % DEFAULT_HOTEL_IMAGES.length] || FALLBACK_HOTEL_IMAGE;
+              const localUrl =
+                item.dataUrl ||
+                item.localPreviewUrl ||
+                item.previewUrl ||
+                (typeof rawUrl === 'string' && (rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) ? rawUrl : null);
+              const resolvedUrl = resolveHotelImageUrl(rawUrl);
+              const imgSrc = localUrl || resolvedUrl || fallbackSrc;
+
+              return (
+                <li
+                  key={item.mediaId}
+                  data-testid="server-image"
+                  draggable={!readOnly}
+                  onDragStart={() => setDragIndex(index)}
+                  onDragOver={(event) => {
+                    if (!readOnly) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveImage(dragIndex, index);
+                    setDragIndex(null);
+                  }}
+                  className={`group relative aspect-4/3 rounded-lg overflow-hidden bg-[#CBD5E1] ${readOnly ? '' : 'cursor-grab'}`}
+                >
+                  <img
+                    src={imgSrc}
+                    alt={`Ảnh ${index + 1}`}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      if (localUrl && e.target.src !== localUrl) {
+                        e.target.src = localUrl;
+                      } else if (fallbackSrc && e.target.src !== fallbackSrc) {
+                        e.target.src = fallbackSrc;
+                      }
+                    }}
+                  />
+                  {index === 0 && (
+                    <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white text-[11px] font-medium text-black">
+                      Ảnh bìa
+                    </span>
+                  )}
+                  {!readOnly && (
+                    <>
                       <button
                         type="button"
-                        onClick={() => moveImage(index, 0)}
-                        aria-label={`Đặt ảnh ${index + 1} làm ảnh bìa`}
-                        className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-black/70 text-[11px] text-white hover:bg-black cursor-pointer md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+                        aria-label={`Xóa ảnh ${index + 1}`}
+                        disabled={deletingIds.includes(item.mediaId)}
+                        onClick={() => deleteServerMedia(item)}
+                        className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-40"
                       >
-                        Đặt làm ảnh bìa
+                        <X size={14} />
                       </button>
-                    )}
-                  </>
-                )}
-              </li>
-            ))}
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => moveImage(index, 0)}
+                          aria-label={`Đặt ảnh ${index + 1} làm ảnh bìa`}
+                          className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-black/70 text-[11px] text-white hover:bg-black cursor-pointer md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+                        >
+                          Đặt làm ảnh bìa
+                        </button>
+                      )}
+                    </>
+                  )}
+                </li>
+              );
+            })}
             {localImages.map((entry) => {
               const failed = entry.status === 'invalid' || entry.status === 'error';
               return (
@@ -351,8 +461,12 @@ export const MediaStep = ({
                     failed ? 'border border-[#DC2626] bg-[#FEF2F2]' : 'bg-[#F1F5F9]'
                   }`}
                 >
-                  {entry.previewUrl && !failed && (
-                    <img src={entry.previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                  {entry.previewUrl && (
+                    <img
+                      src={entry.previewUrl}
+                      alt={entry.name}
+                      className={`w-full h-full object-cover ${failed ? 'opacity-35' : 'opacity-60'}`}
+                    />
                   )}
                   <div className="absolute inset-0 p-2 flex flex-col justify-end text-xs">
                     <p className="font-medium text-black truncate">{entry.name}</p>
@@ -394,27 +508,33 @@ export const MediaStep = ({
 
         {videos.length + localVideos.length > 0 ? (
           <ul className="space-y-2" aria-label="Danh sách video">
-            {videos.map((item) => (
-              <li key={item.mediaId} data-testid="server-video" className="flex items-center gap-3 p-3 rounded-lg border border-[#CBD5E1]">
-                <span className="w-9 h-9 rounded-lg border border-[#CBD5E1] flex items-center justify-center shrink-0">
-                  <Play size={14} />
-                </span>
-                <a href={resolveHotelImageUrl(item.url)} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-black truncate hover:underline">
-                  {`${fileNameFromUrl(item.url)} · ${formatMegabytes(item.kichThuoc)}`}
-                </a>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    aria-label={`Xóa video ${fileNameFromUrl(item.url)}`}
-                    disabled={deletingIds.includes(item.mediaId)}
-                    onClick={() => deleteServerMedia(item)}
-                    className="px-3 py-1.5 min-h-[36px] rounded-lg border border-[#CBD5E1] text-xs hover:bg-[#F8F4E8] cursor-pointer disabled:opacity-40"
-                  >
-                    Xóa
-                  </button>
-                )}
-              </li>
-            ))}
+            {videos.map((item) => {
+              const rawVideoUrl = item.url || item.duongDan || item.duongDanTep;
+              const videoSrc = resolveHotelImageUrl(rawVideoUrl) || item.localPreviewUrl;
+              const fileName = fileNameFromUrl(videoSrc || item.url);
+
+              return (
+                <li key={item.mediaId} data-testid="server-video" className="flex items-center gap-3 p-3 rounded-lg border border-[#CBD5E1]">
+                  <span className="w-9 h-9 rounded-lg border border-[#CBD5E1] flex items-center justify-center shrink-0">
+                    <Play size={14} />
+                  </span>
+                  <a href={videoSrc} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-black truncate hover:underline">
+                    {`${fileName} · ${formatMegabytes(item.kichThuoc)}`}
+                  </a>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      aria-label={`Xóa video ${fileName}`}
+                      disabled={deletingIds.includes(item.mediaId)}
+                      onClick={() => deleteServerMedia(item)}
+                      className="px-3 py-1.5 min-h-[36px] rounded-lg border border-[#CBD5E1] text-xs hover:bg-[#F8F4E8] cursor-pointer disabled:opacity-40"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </li>
+              );
+            })}
             {localVideos.map((entry) => {
               const failed = entry.status === 'invalid' || entry.status === 'error';
               return (

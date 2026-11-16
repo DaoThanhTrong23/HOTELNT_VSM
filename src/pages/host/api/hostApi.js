@@ -251,7 +251,6 @@ export const uploadListingMedia = (maCSLT, { file, type }, { onProgress, signal 
     form.append('type', type);
     return call(() =>
       axiosClient.post(`/host/listings/${id}/media`, form, {
-        // axiosClient defaults to JSON, which would serialize the FormData into JSON.
         headers: { 'Content-Type': 'multipart/form-data' },
         signal,
         onUploadProgress: (event) => {
