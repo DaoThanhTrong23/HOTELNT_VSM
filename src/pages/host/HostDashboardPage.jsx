@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, generatePath, useSearchParams } from 'react-router-dom';
-import { Building2, ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock, Hotel, Plus, Search, X } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -22,6 +22,13 @@ const STATUS_TABS = [
   { key: HOTEL_STATUS.REJECTED, label: 'Bị từ chối' },
   { key: HOTEL_STATUS.HIDDEN, label: 'Ẩn' },
 ];
+// Overview cards (TC_HDB_01), colors from the stat card spec in plans/2026-10-20-host-dashboard-profile.
+const STAT_CARDS = [
+  { key: 'ALL', label: 'Tổng số', Icon: Hotel, colorClass: 'text-black' },
+  { key: HOTEL_STATUS.APPROVED, label: 'Đang hiển thị', Icon: CheckCircle2, colorClass: 'text-[#15803D]' },
+  { key: HOTEL_STATUS.PENDING, label: 'Chờ duyệt', Icon: Clock, colorClass: 'text-[#B45309]' },
+  { key: HOTEL_STATUS.REJECTED, label: 'Bị từ chối', Icon: AlertTriangle, colorClass: 'text-[#DC2626]' },
+];
 const KEYWORD_MAX_LENGTH = 100;
 const SEARCH_DEBOUNCE_MS = 400;
 const PAGE_WINDOW = 5;
@@ -30,6 +37,8 @@ const ACTION_CLASS =
   'inline-flex items-center justify-center px-3 py-1.5 min-h-[36px] rounded-lg border border-[#CBD5E1] bg-white text-black text-xs font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 const DANGER_ACTION_CLASS =
   'inline-flex items-center justify-center px-3 py-1.5 min-h-[36px] rounded-lg border border-[#DC2626]/40 bg-white text-[#DC2626] text-xs font-medium hover:bg-[#FEF2F2] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
+const WARNING_ACTION_CLASS =
+  'inline-flex items-center justify-center px-3 py-1.5 min-h-[36px] rounded-lg border border-[#B45309]/40 bg-white text-[#B45309] text-xs font-medium hover:bg-[#FFFBEB] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 
 const readFilters = (searchParams) => {
   const status = searchParams.get('trangThai');
@@ -132,7 +141,7 @@ const buildRowActions = (item) => {
       else if (canView) actions.push({ key: 'preview', label: 'Xem', to: editPath });
   }
 
-  if (allowed.includes('WITHDRAW')) actions.push({ key: 'withdraw', label: 'Rút lại' });
+  if (allowed.includes('WITHDRAW')) actions.push({ key: 'withdraw', label: 'Rút lại', warning: true });
   if (allowed.includes('DELETE')) actions.push({ key: 'delete', label: 'Xóa', danger: true });
   return actions;
 };
@@ -153,7 +162,7 @@ const RowActions = ({ item, testId, isPending, onWithdraw, onDelete }) => (
           type="button"
           disabled={isPending}
           onClick={() => (action.key === 'delete' ? onDelete(item) : onWithdraw(item))}
-          className={action.danger ? DANGER_ACTION_CLASS : ACTION_CLASS}
+          className={action.danger ? DANGER_ACTION_CLASS : action.warning ? WARNING_ACTION_CLASS : ACTION_CLASS}
         >
           {action.label}
         </button>
@@ -270,7 +279,7 @@ const deleteDialogCopy = (items, { bulk }) => {
       title: `Xóa “${item.tenCSLT}”?`,
       description: `${subject} này cùng toàn bộ ảnh, video đã tải lên sẽ bị xóa vĩnh viễn. Bạn không thể hoàn tác thao tác này.`,
       mobileDescription: `${subject} cùng toàn bộ ảnh, video đã tải lên sẽ bị xóa vĩnh viễn. Không thể hoàn tác.`,
-      confirmLabel: 'Xóa cơ sở',
+      confirmLabel: 'Xác nhận xóa',
     };
   }
   return {
@@ -335,10 +344,10 @@ export const HostDashboardPage = () => {
     }, options);
   };
 
+  // 'Tất cả' also writes ?trangThai=ALL (TC_HDB_02); hostApi drops ALL before calling the server.
   const selectStatus = (status) =>
     updateParams((next) => {
-      if (status === 'ALL') next.delete('trangThai');
-      else next.set('trangThai', status);
+      next.set('trangThai', status);
       next.delete('page');
     });
 
@@ -452,7 +461,7 @@ export const HostDashboardPage = () => {
         variant: 'warning',
         title: 'Rút lại yêu cầu kiểm duyệt?',
         description: `“${dialog.items[0].tenCSLT}” sẽ chuyển về Bản nháp để bạn tiếp tục chỉnh sửa. Sau khi sửa xong, bạn cần gửi kiểm duyệt lại.`,
-        confirmLabel: 'Rút lại',
+        confirmLabel: 'Xác nhận rút',
       };
     }
     return { variant: 'danger', ...deleteDialogCopy(dialog.items, { bulk: dialog.type === 'bulk-delete' }) };
@@ -713,6 +722,22 @@ export const HostDashboardPage = () => {
           <Plus size={16} />
           <span>Thêm cơ sở</span>
         </Link>
+      </div>
+
+      <div data-testid="host-stat-cards" className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {STAT_CARDS.map(({ key, label, Icon, colorClass }) => (
+          <div
+            key={key}
+            data-testid={`stat-card-${key}`}
+            className="bg-white border border-[#CBD5E1] rounded-2xl p-4 sm:p-5 flex items-start justify-between gap-3"
+          >
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-[#64748B]">{label}</p>
+              <p className={`text-2xl font-semibold mt-1 ${colorClass}`}>{countFor(key)}</p>
+            </div>
+            <Icon size={20} aria-hidden="true" className={`shrink-0 ${colorClass}`} />
+          </div>
+        ))}
       </div>
 
       {!hasNoListings && (

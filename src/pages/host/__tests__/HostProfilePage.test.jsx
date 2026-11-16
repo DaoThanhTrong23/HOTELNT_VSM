@@ -43,12 +43,12 @@ const renderReady = async () => {
 
 const nameInput = () => screen.getByLabelText('Họ và tên');
 const phoneInput = () => screen.getByLabelText('Số điện thoại di động');
-const saveButton = () => screen.getByRole('button', { name: 'Lưu thông tin' });
+const saveButton = () => screen.getByRole('button', { name: 'Lưu thay đổi' });
 const cancelButton = () => screen.getByRole('button', { name: 'Hủy thay đổi' });
 const oldPwd = () => screen.getByLabelText('Mật khẩu hiện tại');
 const newPwd = () => screen.getByLabelText('Mật khẩu mới');
 const confirmPwd = () => screen.getByLabelText('Xác nhận mật khẩu mới');
-const pwdButton = () => screen.getByRole('button', { name: 'Cập nhật mật khẩu' });
+const pwdButton = () => screen.getByRole('button', { name: 'Lưu' });
 
 const fillPasswords = (oldValue, newValue, confirmValue = newValue) => {
   fireEvent.change(oldPwd(), { target: { value: oldValue } });
@@ -84,6 +84,15 @@ describe('HostProfilePage: profile', () => {
     expect(screen.queryByText(/Giới tính/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Ngày sinh/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /CCCD/ })).not.toBeInTheDocument();
+  });
+
+  it('PROF-02b: shows a lock icon on Email and CCCD only', async () => {
+    await renderReady();
+
+    expect(screen.getByLabelText('Địa chỉ Email').parentElement.querySelector('svg')).not.toBeNull();
+    expect(screen.getByLabelText('Căn cước công dân').parentElement.querySelector('svg')).not.toBeNull();
+    expect(nameInput().parentElement.querySelector('svg')).toBeNull();
+    expect(phoneInput().parentElement.querySelector('svg')).toBeNull();
   });
 
   it('PROF-03: shows ErrorState on 500 and recovers on retry', async () => {
@@ -157,6 +166,26 @@ describe('HostProfilePage: profile', () => {
     expect(await screen.findByText('Cập nhật thông tin thành công')).toBeInTheDocument();
     expect(phoneInput()).toHaveValue('0905111222');
     expect(saveButton()).toBeDisabled();
+  });
+
+  it('PROF-09b: puts the saved name in the login session so the Sidebar shows it', async () => {
+    localStorage.setItem('user', JSON.stringify({ id: 7, name: 'Khánh Quỳnh', hoTen: 'Khánh Quỳnh', role: 'HOST' }));
+    localStorage.setItem('token', 'host-token');
+    await renderReady();
+    updateHostProfile.mockResolvedValue({ id: 7, hoTen: 'Nguyễn Văn Host Mới', soDienThoai: '0918736452', email: 'kq@gmail.vn' });
+
+    fireEvent.change(nameInput(), { target: { value: 'Nguyễn Văn Host Mới' } });
+    fireEvent.click(saveButton());
+
+    await screen.findByText('Cập nhật thông tin thành công');
+    expect(JSON.parse(localStorage.getItem('user'))).toEqual({
+      id: 7,
+      name: 'Nguyễn Văn Host Mới',
+      hoTen: 'Nguyễn Văn Host Mới',
+      role: 'HOST',
+    });
+    expect(localStorage.getItem('token')).toBe('host-token');
+    localStorage.clear();
   });
 
   it('PROF-10: shows ACCOUNT_DUPLICATED under the phone field', async () => {
@@ -258,13 +287,32 @@ describe('HostProfilePage: change password', () => {
     vi.clearAllMocks();
   });
 
-  it('PWD-01: lists the missing criteria and blocks submit', async () => {
+  it('PWD-01: lists the missing criteria and sends nothing on "Lưu"', async () => {
     await renderReady();
     fillPasswords('Old@1234', 'Abcdefg1');
 
     expect(screen.getByText('Còn thiếu: ký tự đặc biệt')).toBeInTheDocument();
+    expect(pwdButton()).toBeEnabled();
+    fireEvent.click(pwdButton());
+    expect(changeHostPassword).not.toHaveBeenCalled();
+  });
+
+  it('PWD-01b: keeps "Lưu" off until all three fields are filled', async () => {
+    await renderReady();
     expect(pwdButton()).toBeDisabled();
-    fireEvent.submit(pwdButton().closest('form'));
+
+    fireEvent.change(oldPwd(), { target: { value: 'Old@1234' } });
+    fireEvent.change(newPwd(), { target: { value: 'Abcdefg1_' } });
+    expect(pwdButton()).toBeDisabled();
+  });
+
+  it('PWD-01c: shows the TC_PRF_03 messages for a short and a mismatched password', async () => {
+    await renderReady();
+    fillPasswords('SaiMatKhau@1', 'Ab1@', 'Ab1@x');
+    fireEvent.click(pwdButton());
+
+    expect(screen.getByText('Mật khẩu mới phải từ 8 ký tự trở lên.')).toBeInTheDocument();
+    expect(screen.getByText('Mật khẩu xác nhận không trùng khớp.')).toBeInTheDocument();
     expect(changeHostPassword).not.toHaveBeenCalled();
   });
 
@@ -280,8 +328,8 @@ describe('HostProfilePage: change password', () => {
     await renderReady();
     fillPasswords('Old@1234', 'Abcdefg1_', 'Abcdefg1-');
 
-    expect(screen.getByText('Xác nhận mật khẩu mới không trùng khớp.')).toBeInTheDocument();
-    expect(pwdButton()).toBeDisabled();
+    expect(screen.getByText('Mật khẩu xác nhận không trùng khớp.')).toBeInTheDocument();
+    fireEvent.click(pwdButton());
     expect(changeHostPassword).not.toHaveBeenCalled();
   });
 
@@ -290,7 +338,8 @@ describe('HostProfilePage: change password', () => {
     fillPasswords('Abcdefg1_', 'Abcdefg1_');
 
     expect(screen.getByText('Mật khẩu mới phải khác mật khẩu hiện tại.')).toBeInTheDocument();
-    expect(pwdButton()).toBeDisabled();
+    fireEvent.click(pwdButton());
+    expect(changeHostPassword).not.toHaveBeenCalled();
   });
 
   it('PWD-05: submits, clears the fields and shows a toast', async () => {

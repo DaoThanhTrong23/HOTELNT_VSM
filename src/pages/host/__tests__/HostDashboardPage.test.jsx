@@ -156,7 +156,18 @@ describe('HostDashboardPage: listing data', () => {
     expect(screen.getByTestId('filter-chip-DRAFT')).toHaveTextContent('Bản nháp1');
     expect(screen.getByTestId('filter-chip-HIDDEN')).toHaveTextContent('Ẩn—');
     expect(screen.getByTestId('filter-chip-ALL')).toHaveTextContent('Tất cả—');
-    expect(screen.queryByTestId('stat-total-count')).not.toBeInTheDocument();
+    expect(screen.getByTestId('stat-card-ALL')).toHaveTextContent('Tổng số—');
+  });
+
+  it('DASH-04c: shows the 4 stat cards of TC_HDB_01 from the status counts', async () => {
+    mockListings();
+    renderPage();
+    await waitForRows();
+
+    await waitFor(() => expect(screen.getByTestId('stat-card-ALL')).toHaveTextContent('Tổng số7'));
+    expect(screen.getByTestId('stat-card-APPROVED')).toHaveTextContent('Đang hiển thị2');
+    expect(screen.getByTestId('stat-card-PENDING')).toHaveTextContent('Chờ duyệt2');
+    expect(screen.getByTestId('stat-card-REJECTED')).toHaveTextContent('Bị từ chối1');
   });
 
   it('DASH-04b: "Tất cả" is the sum of the 5 statuses', async () => {
@@ -175,6 +186,18 @@ describe('HostDashboardPage: listing data', () => {
     await waitFor(() => expect(listCalls().at(-1)).toEqual({ trangThai: 'PENDING', keyword: '', page: 1, limit: 10 }));
     expect(screen.getByTestId('location')).toHaveTextContent('trangThai=PENDING');
     expect(screen.getByTestId('filter-chip-PENDING')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('DASH-05b: "Tất cả" writes ?trangThai=ALL and still lists every status', async () => {
+    mockListings();
+    renderPage('/host/dashboard?trangThai=PENDING');
+    await waitForRows();
+
+    fireEvent.click(screen.getByTestId('filter-chip-ALL'));
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/host/dashboard?trangThai=ALL'));
+    expect(listCalls().at(-1)).toEqual({ trangThai: 'ALL', keyword: '', page: 1, limit: 10 });
+    expect(screen.getByTestId('filter-chip-ALL')).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('DASH-06: debounces the keyword search', async () => {
@@ -374,7 +397,7 @@ describe('HostDashboardPage: row actions', () => {
     fireEvent.click(within(desktopRow('Hòn Chồng')).getByRole('button', { name: 'Rút lại' }));
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText('Rút lại yêu cầu kiểm duyệt?')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Rút lại' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xác nhận rút' }));
 
     await waitFor(() => expect(withdrawListing).toHaveBeenCalledWith(13));
     expect(await screen.findByRole('status')).toHaveTextContent('Đã rút lại yêu cầu kiểm duyệt');
@@ -391,7 +414,7 @@ describe('HostDashboardPage: row actions', () => {
     const callsBefore = listCalls().length;
 
     fireEvent.click(within(desktopRow('Hòn Chồng')).getByRole('button', { name: 'Rút lại' }));
-    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Rút lại' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xác nhận rút' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Trạng thái hiện tại của cơ sở không cho phép thao tác này.');
     await waitFor(() => expect(listCalls().length).toBe(callsBefore + 1));
@@ -415,7 +438,7 @@ describe('HostDashboardPage: row actions', () => {
 
     fireEvent.click(within(desktopRow('Nhà Biển Xanh')).getByRole('button', { name: 'Xóa' }));
     dialog = screen.getByRole('alertdialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Xóa cơ sở' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xác nhận xóa' }));
 
     await waitFor(() => expect(deleteHostListing).toHaveBeenCalledWith(12));
     expect(await screen.findByRole('status')).toHaveTextContent('Xóa cơ sở thành công');
@@ -434,7 +457,7 @@ describe('HostDashboardPage: row actions', () => {
     await waitForRows();
 
     fireEvent.click(within(desktopRow('Nhà Biển Xanh')).getByRole('button', { name: 'Xóa' }));
-    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xóa cơ sở' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xác nhận xóa' }));
 
     await waitFor(() => expect(listCalls().at(-1)).toMatchObject({ page: 1 }));
   });
@@ -448,7 +471,7 @@ describe('HostDashboardPage: row actions', () => {
     await waitForRows();
 
     fireEvent.click(within(desktopRow('Nhà Biển Xanh')).getByRole('button', { name: 'Xóa' }));
-    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xóa cơ sở' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xác nhận xóa' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể xóa cơ sở ở trạng thái hiện tại.');
   });
@@ -522,7 +545,7 @@ describe('HostDashboardPage: row actions', () => {
     await waitForRows();
 
     fireEvent.click(within(desktopRow('Nhà Biển Xanh')).getByRole('button', { name: 'Xóa' }));
-    const confirm = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xóa cơ sở' });
+    const confirm = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Xác nhận xóa' });
     fireEvent.click(confirm);
     fireEvent.click(confirm);
 

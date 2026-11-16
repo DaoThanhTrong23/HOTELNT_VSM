@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Lock } from 'lucide-react';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ROUTES } from '../../constants/routes';
@@ -13,9 +13,10 @@ const PHONE_PATTERN = /^0\d{9}$/;
 const NAME_MAX_LENGTH = 100;
 const SYSTEM_ERROR_CODES = ['INTERNAL_ERROR', 'NETWORK_ERROR', 'TIMEOUT'];
 const PROFILE_SYSTEM_ERROR = 'Cập nhật thông tin không thành công do sự cố hệ thống. Vui lòng thử lại sau.';
+const PASSWORD_MIN_LENGTH = 8;
 
 const PASSWORD_CRITERIA = [
-  { label: 'ít nhất 8 ký tự', test: (pwd) => pwd.length >= 8 },
+  { label: 'ít nhất 8 ký tự', test: (pwd) => pwd.length >= PASSWORD_MIN_LENGTH },
   { label: 'chữ in hoa', test: (pwd) => /[A-Z]/.test(pwd) },
   { label: 'chữ thường', test: (pwd) => /[a-z]/.test(pwd) },
   { label: 'chữ số', test: (pwd) => /[0-9]/.test(pwd) },
@@ -32,7 +33,7 @@ const inputClass = (hasError) =>
   }`;
 
 const readOnlyClass =
-  'w-full px-3.5 py-2.5 bg-[#CBD5E1] border border-[#CBD5E1] rounded-lg text-sm text-[#64748B] min-h-[44px] cursor-not-allowed';
+  'w-full pl-3.5 pr-10 py-2.5 bg-[#CBD5E1] border border-[#CBD5E1] rounded-lg text-sm text-[#64748B] min-h-[44px] cursor-not-allowed';
 
 const toProfileValues = (profile) => ({
   hoTen: profile?.hoTen ?? '',
@@ -60,6 +61,26 @@ const FieldError = ({ id, message }) =>
       <span>{message}</span>
     </p>
   ) : null;
+
+// Email and CCCD cannot be edited by the Host (SRS FR-13), shown with a gray lock (TC_PRF_01).
+const LockedInput = ({ id, type, value }) => (
+  <div className="relative">
+    <input
+      id={id}
+      type={type}
+      readOnly
+      aria-readonly="true"
+      aria-describedby="profile-identity-note"
+      value={value}
+      className={readOnlyClass}
+    />
+    <Lock
+      size={16}
+      aria-hidden="true"
+      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none"
+    />
+  </div>
+);
 
 const FormBanner = ({ message }) =>
   message ? (
@@ -188,30 +209,14 @@ const ProfileForm = ({ profile, onSaved }) => {
             <label htmlFor="profile-cccd" className="text-xs font-medium text-black">
               Căn cước công dân
             </label>
-            <input
-              id="profile-cccd"
-              type="text"
-              readOnly
-              aria-readonly="true"
-              aria-describedby="profile-identity-note"
-              value={profile?.cccd ?? ''}
-              className={readOnlyClass}
-            />
+            <LockedInput id="profile-cccd" type="text" value={profile?.cccd ?? ''} />
           </div>
 
           <div className="space-y-1.5">
             <label htmlFor="profile-email" className="text-xs font-medium text-black">
               Địa chỉ Email
             </label>
-            <input
-              id="profile-email"
-              type="email"
-              readOnly
-              aria-readonly="true"
-              aria-describedby="profile-identity-note"
-              value={profile?.email ?? ''}
-              className={readOnlyClass}
-            />
+            <LockedInput id="profile-email" type="email" value={profile?.email ?? ''} />
           </div>
           <p id="profile-identity-note" className="text-[11px] text-[#64748B]">
             Email và CCCD là thông tin định danh, liên hệ Admin để thay đổi.
@@ -233,7 +238,7 @@ const ProfileForm = ({ profile, onSaved }) => {
           disabled={!canSave}
           className="min-h-[44px] px-8 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {isSaving ? 'Đang lưu...' : 'Lưu thông tin'}
+          {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
         </button>
       </div>
     </form>
@@ -250,15 +255,19 @@ const PasswordForm = ({ onChanged }) => {
   const { oldPassword, newPassword, confirmPassword } = values;
   const missing = PASSWORD_CRITERIA.filter((rule) => !rule.test(newPassword)).map((rule) => rule.label);
 
+  // Length and confirm messages are worded as in TC_PRF_03.
   let newPasswordError = serverErrors.newPassword || '';
-  if (newPassword && missing.length) newPasswordError = `Còn thiếu: ${missing.join(', ')}`;
+  if (newPassword && newPassword.length < PASSWORD_MIN_LENGTH) newPasswordError = 'Mật khẩu mới phải từ 8 ký tự trở lên.';
+  else if (newPassword && missing.length) newPasswordError = `Còn thiếu: ${missing.join(', ')}`;
   else if (newPassword && newPassword === oldPassword) newPasswordError = 'Mật khẩu mới phải khác mật khẩu hiện tại.';
   const confirmError =
-    confirmPassword && confirmPassword !== newPassword ? 'Xác nhận mật khẩu mới không trùng khớp.' : '';
+    confirmPassword && confirmPassword !== newPassword ? 'Mật khẩu xác nhận không trùng khớp.' : '';
   const oldPasswordError = serverErrors.oldPassword || '';
 
+  // 'Lưu' is clickable once all three fields are filled; invalid values stay on screen and nothing is sent.
+  const isFilled = Boolean(oldPassword && newPassword && confirmPassword);
   const canSubmit =
-    Boolean(oldPassword && newPassword && confirmPassword) &&
+    isFilled &&
     missing.length === 0 &&
     newPassword !== oldPassword &&
     !confirmError &&
@@ -324,10 +333,10 @@ const PasswordForm = ({ onChanged }) => {
       <div className="flex sm:justify-end">
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={!isFilled || isSubmitting}
           className="w-full sm:w-auto min-h-[44px] px-8 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+          {isSubmitting ? 'Đang lưu...' : 'Lưu'}
         </button>
       </div>
     </form>
@@ -340,7 +349,7 @@ export const HostProfilePage = () => {
   const [loadError, setLoadError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const { toast, showToast, dismissToast } = useToast();
-  const { logout } = useAuth();
+  const { user, token, login, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -411,6 +420,8 @@ export const HostProfilePage = () => {
           profile={profile}
           onSaved={(next) => {
             setProfile((prev) => ({ ...prev, ...next }));
+            // The Sidebar reads the name from the auth session; login() is the session's only setter.
+            if (user) login({ ...user, name: next.hoTen, hoTen: next.hoTen }, token);
             showToast({ type: 'success', message: 'Cập nhật thông tin thành công' });
           }}
         />
