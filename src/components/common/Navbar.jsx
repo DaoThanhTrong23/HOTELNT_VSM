@@ -1,11 +1,86 @@
-
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, SlidersHorizontal, User, Menu, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, SlidersHorizontal, User, Menu, X, LogOut, LayoutDashboard, UserCheck } from 'lucide-react';
 import { ROUTES } from '../../constants/routes';
+import { useFilter } from '../../context/FilterContext';
+import { useAuth } from '../../hooks/useAuth';
+import { BrandLogo } from './BrandLogo';
+
+const UserMenuContent = ({ isAuthenticated, isHost, isAdmin, user, onSelect, onLogout }) => {
+  if (isAuthenticated) {
+    return (
+      <>
+        <li className="px-3.5 py-2 border-b border-[#F1F5F9] mb-1">
+          <p className="text-[11px] text-[#94A3B8]">Đang đăng nhập với quyền</p>
+          <p className="text-xs font-bold text-black truncate">
+            {isHost ? (user?.hoTen || user?.name || user?.soDienThoai || 'Host') : (user?.email || 'Quản trị viên')}
+          </p>
+        </li>
+        {isHost && (
+          <>
+            <li>
+              <Link
+                to={ROUTES.HOST.DASHBOARD}
+                onClick={onSelect}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+              >
+                <LayoutDashboard size={14} />
+                Quản lý cơ sở lưu trú
+              </Link>
+            </li>
+            <li>
+              <Link
+                to={ROUTES.HOST.PROFILE}
+                onClick={onSelect}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+              >
+                <UserCheck size={14} />
+                Hồ sơ cá nhân
+              </Link>
+            </li>
+          </>
+        )}
+        {isAdmin && (
+          <li>
+            <Link
+              to={ROUTES.ADMIN.DASHBOARD}
+              onClick={onSelect}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+            >
+              <LayoutDashboard size={14} />
+              Trang quản trị (Admin)
+            </Link>
+          </li>
+        )}
+        <li className="pt-1 border-t border-[#F1F5F9] mt-1">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-[#FEF2F2] text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
+          >
+            <LogOut size={14} />
+            Đăng xuất
+          </button>
+        </li>
+      </>
+    );
+  }
+
+  return (
+    <li>
+      <Link
+        to={ROUTES.LOGIN}
+        onClick={onSelect}
+        className="block px-3.5 py-2.5 rounded-xl hover:bg-[#F8F4E8] text-xs sm:text-sm font-semibold text-black transition-colors"
+      >
+        Đăng nhập
+      </Link>
+    </li>
+  );
+};
 
 /**
- * Navbar Tourist
+ * Navbar Tourist theo Figma Design:
  *
  * Desktop:
  * [LOGO] [Search input] [Tìm kiếm] [Bộ lọc] [User]
@@ -14,47 +89,71 @@ import { ROUTES } from '../../constants/routes';
  * [LOGO]                 [Menu] [User]
  * [Search input             Search icon]
  *
- * prop onOpenFilter: callback mở Filter Popup (SearchResultsPage)
+ * Nút lọc luôn hiển thị popup bộ lọc theo thiết kế
  */
-
 export const Navbar = ({ onOpenFilter }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const { user, isAuthenticated, isHost, isAdmin, logout } = useAuth();
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('keyword') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  const mobileUserMenuRef = useRef(null);
+
+  // Đóng dropdown tài khoản khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const inDesktop = userMenuRef.current && userMenuRef.current.contains(event.target);
+      const inMobile = mobileUserMenuRef.current && mobileUserMenuRef.current.contains(event.target);
+      if (!inDesktop && !inMobile) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navigate = useNavigate();
-  const location = useLocation();
+  const filterContext = useFilter();
 
-  const isSearchPage = location.pathname === ROUTES.SEARCH;
+  const handleLogout = () => {
+    logout();
+    setIsUserMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    navigate(ROUTES.HOME);
+  };
+
+  // Đồng bộ ô search khi keyword trên URL thay đổi
+  useEffect(() => {
+    setSearchTerm(searchParams.get('keyword') || '');
+  }, [searchParams]);
 
   // Xử lý tìm kiếm
   const handleSearch = (e) => {
     e.preventDefault();
-
     const kw = searchTerm.trim();
-
     if (kw) {
       navigate(`${ROUTES.SEARCH}?keyword=${encodeURIComponent(kw)}`);
     } else {
       navigate(ROUTES.SEARCH);
     }
-
     setIsMobileMenuOpen(false);
   };
 
-  // Xử lý mở bộ lọc
+  // Xử lý mở bộ lọc (FilterContext hoặc callback onOpenFilter)
   const handleOpenFilter = () => {
-    if (isSearchPage && onOpenFilter) {
+    if (filterContext?.openFilter) {
+      filterContext.openFilter();
+    } else if (onOpenFilter) {
       onOpenFilter();
     } else {
       navigate(ROUTES.SEARCH);
     }
-
     setIsMobileMenuOpen(false);
   };
 
   return (
     <nav className="sticky top-0 z-40 bg-white border-b border-[#CBD5E1] shadow-sm">
-
       {/* =====================================================
           MAIN NAVBAR CONTAINER
       ===================================================== */}
@@ -67,42 +166,27 @@ export const Navbar = ({ onOpenFilter }) => {
         gap-2 md:gap-4
         py-2 md:py-0
       ">
-
         {/* =====================================================
             LOGO DESKTOP
         ===================================================== */}
-        <Link
-          to={ROUTES.HOME}
-          className="
-            hidden md:flex
-            items-center gap-2
-            font-black text-lg text-black
-            flex-shrink-0 tracking-tight
-          "
+        <BrandLogo
+          size="md"
           id="navbar-logo"
-        >
-          <span>HOTELNT</span>
-        </Link>
-
+          className="hidden md:flex flex-shrink-0"
+        />
 
         {/* =====================================================
-            MOBILE HEADER
-            LOGO + MENU + USER
+            MOBILE HEADER: LOGO + MENU + USER
         ===================================================== */}
         <div className="md:hidden flex items-center justify-between w-full h-7">
-
           {/* Logo */}
-          <Link
-            to={ROUTES.HOME}
+          <BrandLogo
+            size="sm"
             id="navbar-mobile-logo"
-            className="font-black text-base text-black tracking-tight"
-          >
-            HOTELNT
-          </Link>
+          />
 
           {/* Menu + User */}
           <div className="flex items-center gap-3">
-
             {/* Menu button */}
             <button
               id="navbar-mobile-menu-btn"
@@ -120,36 +204,65 @@ export const Navbar = ({ onOpenFilter }) => {
               aria-label={isMobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
               aria-expanded={isMobileMenuOpen}
             >
-              {isMobileMenuOpen
-                ? <X size={19} />
-                : <Menu size={19} />
-              }
+              {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
             </button>
 
-            {/* User icon */}
-            <Link
-              to={ROUTES.ADMIN.LOGIN}
-              id="navbar-mobile-user-icon"
-              title="Đăng nhập"
-              className="
-                text-black
-                flex items-center justify-center
-                hover:text-gray-500
-                transition-colors
-              "
-            >
-              <User size={17} />
-            </Link>
+            {/* User icon: Direct Link to Host Login if unauthenticated, or Dropdown if authenticated */}
+            <div ref={mobileUserMenuRef} className="relative">
+              {isAuthenticated ? (
+                <>
+                  <button
+                    type="button"
+                    id="navbar-mobile-user-icon"
+                    onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                    title="Tài khoản"
+                    className={`
+                      p-1
+                      flex items-center justify-center
+                      rounded-md
+                      transition-colors
+                      cursor-pointer
+                      ${isUserMenuOpen ? 'bg-black text-white' : 'text-black hover:text-gray-500'}
+                    `}
+                    aria-expanded={isUserMenuOpen}
+                  >
+                    <User size={18} />
+                  </button>
 
+                  {/* Mobile User Dropdown Popover */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <ul className="space-y-0.5">
+                        <UserMenuContent
+                          isAuthenticated={isAuthenticated}
+                          isHost={isHost}
+                          isAdmin={isAdmin}
+                          user={user}
+                          onSelect={() => setIsUserMenuOpen(false)}
+                          onLogout={handleLogout}
+                        />
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link
+                  to={ROUTES.LOGIN}
+                  id="navbar-mobile-user-icon"
+                  title="Đăng nhập"
+                  className="p-1 flex items-center justify-center rounded-md text-black hover:text-gray-500 transition-colors"
+                >
+                  <User size={18} />
+                </Link>
+              )}
+            </div>
           </div>
         </div>
-
 
         {/* =====================================================
             SEARCH DESKTOP + ACTIONS
         ===================================================== */}
         <div className="hidden md:flex items-center gap-2 flex-1">
-
           {/* Search form */}
           <form
             id="navbar-search-form"
@@ -170,7 +283,7 @@ export const Navbar = ({ onOpenFilter }) => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm kiếm khách sạn..."
+              placeholder="Tìm khách sạn..."
               className="
                 flex-1 min-w-0
                 px-4 py-2.5
@@ -189,7 +302,7 @@ export const Navbar = ({ onOpenFilter }) => {
             type="button"
             onClick={handleSearch}
             className="
-              flex items-center gap-1.5
+              flex items-center justify-center
               px-4 py-2.5
               rounded-lg
               border border-black
@@ -202,7 +315,6 @@ export const Navbar = ({ onOpenFilter }) => {
               flex-shrink-0
             "
           >
-            <Search size={15} />
             Tìm kiếm
           </button>
 
@@ -212,7 +324,7 @@ export const Navbar = ({ onOpenFilter }) => {
             type="button"
             onClick={handleOpenFilter}
             className="
-              flex items-center gap-1.5
+              flex items-center gap-2
               px-4 py-2.5
               rounded-lg
               border border-[#CBD5E1]
@@ -225,41 +337,77 @@ export const Navbar = ({ onOpenFilter }) => {
               flex-shrink-0
             "
           >
+            <span>Bộ lọc</span>
             <SlidersHorizontal size={15} />
-            Bộ lọc ▾
           </button>
-
         </div>
 
-
         {/* =====================================================
-            USER ICON DESKTOP
+            USER ICON DESKTOP: DIRECT LINK TO HOST LOGIN OR DROPDOWN IF AUTHENTICATED
         ===================================================== */}
-        <div className="hidden md:flex items-center gap-2 flex-shrink-0 ml-auto">
+        <div ref={userMenuRef} className="hidden md:flex items-center gap-2 flex-shrink-0 ml-auto relative">
+          {isAuthenticated ? (
+            <>
+              <button
+                type="button"
+                id="navbar-user-icon"
+                onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="true"
+                title="Tài khoản"
+                className={`
+                  w-9 h-9
+                  rounded-full
+                  flex items-center justify-center
+                  transition-all
+                  cursor-pointer
+                  ${
+                    isUserMenuOpen
+                      ? 'bg-black text-white shadow-xs'
+                      : 'text-[#64748B] hover:text-black hover:bg-[#F8F4E8]'
+                  }
+                `}
+              >
+                <User size={20} />
+              </button>
 
-          <Link
-            to={ROUTES.ADMIN.LOGIN}
-            id="navbar-user-icon"
-            title="Đăng nhập"
-            className="
-              w-9 h-9
-              rounded-full
-              flex items-center justify-center
-              text-[#64748B]
-              hover:text-black
-              hover:bg-[#F8F4E8]
-              transition-colors
-            "
-          >
-            <User size={22} />
-          </Link>
-
+              {/* DROPDOWN MENU UL / LI */}
+              {isUserMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-[#CBD5E1] py-1.5 px-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <ul className="space-y-0.5">
+                    <UserMenuContent
+                      isAuthenticated={isAuthenticated}
+                      isHost={isHost}
+                      isAdmin={isAdmin}
+                      user={user}
+                      onSelect={() => setIsUserMenuOpen(false)}
+                      onLogout={handleLogout}
+                    />
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <Link
+              to={ROUTES.LOGIN}
+              id="navbar-user-icon"
+              title="Đăng nhập"
+              className="
+                w-9 h-9
+                rounded-full
+                flex items-center justify-center
+                text-[#64748B] hover:text-black hover:bg-[#F8F4E8]
+                transition-all
+                cursor-pointer
+              "
+            >
+              <User size={20} />
+            </Link>
+          )}
         </div>
 
-
         {/* =====================================================
-            MOBILE SEARCH
-            SEARCH INPUT + ICON
+            MOBILE SEARCH: SEARCH INPUT + ICON
         ===================================================== */}
         <form
           id="navbar-mobile-search-form"
@@ -277,7 +425,6 @@ export const Navbar = ({ onOpenFilter }) => {
             focus-within:border-black
             transition-all
           ">
-
             {/* Input */}
             <input
               id="navbar-mobile-search-input"
@@ -310,16 +457,13 @@ export const Navbar = ({ onOpenFilter }) => {
             >
               <Search size={13} />
             </button>
-
           </div>
         </form>
-
       </div>
-
 
       {/* =====================================================
           MOBILE EXPANDED MENU
-      ===================================================== */}
+        ===================================================== */}
       {isMobileMenuOpen && (
         <div className="
           md:hidden
@@ -330,7 +474,6 @@ export const Navbar = ({ onOpenFilter }) => {
           border-b border-[#CBD5E1]
           space-y-2
         ">
-
           {/* Filter */}
           <button
             id="navbar-mobile-filter-btn"
@@ -351,27 +494,39 @@ export const Navbar = ({ onOpenFilter }) => {
             Bộ lọc
           </button>
 
-          {/* Login */}
-          <Link
-            to={ROUTES.ADMIN.LOGIN}
-            id="navbar-mobile-login"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="
-              flex items-center gap-2
-              px-3 py-2.5
-              rounded-lg
-              text-sm font-semibold text-black
-              hover:bg-[#F8F4E8]
-              transition-colors
-            "
-          >
-            <User size={16} />
-            Đăng nhập
-          </Link>
-
+          <ul className="space-y-1 pt-1 border-t border-[#E2E8F0]">
+            {isAuthenticated ? (
+              <UserMenuContent
+                isAuthenticated={isAuthenticated}
+                isHost={isHost}
+                isAdmin={isAdmin}
+                user={user}
+                onSelect={() => setIsMobileMenuOpen(false)}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <li>
+                <Link
+                  to={ROUTES.LOGIN}
+                  id="navbar-mobile-login-link"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="
+                    flex items-center gap-2
+                    px-3 py-2.5
+                    rounded-lg
+                    text-sm font-semibold text-black
+                    hover:bg-[#F8F4E8]
+                    transition-colors
+                  "
+                >
+                  <User size={16} />
+                  Đăng nhập
+                </Link>
+              </li>
+            )}
+          </ul>
         </div>
       )}
-
     </nav>
   );
 };

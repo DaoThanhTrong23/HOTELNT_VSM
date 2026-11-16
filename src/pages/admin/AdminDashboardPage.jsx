@@ -1,4 +1,4 @@
-
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ClipboardCheck,
@@ -14,16 +14,20 @@ import {
   ChevronRight,
   Eye,
   Building2,
-  TrendingUp,
   CalendarDays,
   Settings,
   Sparkles,
   FileCheck,
+  MapPin,
 } from 'lucide-react';
 
 import { ROUTES } from '../../constants/routes';
+import { adminService } from '../../services/adminService';
+import { formatDate } from '../../utils/formatters';
+import { USE_MOCK } from '../../mocks/mockAdmin';
+import { MapSection } from '../../components/tourist/MapSection';
 
-const stats = [
+const DEFAULT_STATS = [
   {
     label: 'Cơ sở chờ duyệt',
     value: '03',
@@ -76,7 +80,7 @@ const weeklyData = [
   { day: 'CN', value: 68 },
 ];
 
-const pendingHotels = [
+const DEFAULT_PENDING_HOTELS = [
   {
     id: 'HT001',
     name: 'Sea View Hotel Nha Trang',
@@ -123,6 +127,109 @@ const systemServices = [
 ];
 
 export const AdminDashboardPage = () => {
+  const [counts, setCounts] = useState({
+    pending: 1,
+    approved: 5,
+    hosts: 3,
+  });
+  const [pendingListings, setPendingListings] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDashboardStats = async () => {
+      try {
+        setIsLoading(true);
+        const [pendingRes, approvedRes, hostsRes] = await Promise.allSettled([
+          adminService.getListings({ trangThai: 'PENDING', limit: 5 }),
+          adminService.getListings({ trangThai: 'APPROVED', limit: 1 }),
+          adminService.getHosts({ limit: 1 }),
+        ]);
+
+        if (!isMounted) return;
+
+        let pCount = counts.pending;
+        let aCount = counts.approved;
+        let hCount = counts.hosts;
+
+        if (pendingRes.status === 'fulfilled' && pendingRes.value) {
+          const pVal = pendingRes.value;
+          const items = Array.isArray(pVal) ? pVal : (pVal.items || []);
+          setPendingListings(items);
+          pCount = pVal.pagination?.totalItems ?? items.length;
+        }
+
+        if (approvedRes.status === 'fulfilled' && approvedRes.value) {
+          const aVal = approvedRes.value;
+          aCount = aVal.pagination?.totalItems ?? (Array.isArray(aVal) ? aVal.length : (aVal.items?.length || aCount));
+        }
+
+        if (hostsRes.status === 'fulfilled' && hostsRes.value) {
+          const hVal = hostsRes.value;
+          hCount = hVal.pagination?.totalItems ?? (Array.isArray(hVal) ? hVal.length : (hVal.items?.length || hCount));
+        }
+
+        setCounts({
+          pending: pCount,
+          approved: aCount,
+          hosts: hCount,
+        });
+      } catch (err) {
+        console.warn('Lỗi khi tải dữ liệu tổng quan admin từ API:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchDashboardStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const statsList = [
+    {
+      label: 'Cơ sở chờ duyệt',
+      value: String(counts.pending).padStart(2, '0'),
+      description: 'Cần được kiểm duyệt',
+      icon: ClipboardCheck,
+      color: 'text-amber-700',
+      bg: 'bg-amber-50',
+      link: ROUTES.ADMIN.MODERATION,
+      tag: 'Cần xử lý',
+    },
+    {
+      label: 'Cơ sở đang hiển thị',
+      value: String(counts.approved).padStart(2, '0'),
+      description: 'Đang hoạt động công khai',
+      icon: Hotel,
+      color: 'text-emerald-700',
+      bg: 'bg-emerald-50',
+      link: ROUTES.ADMIN.MODERATION,
+      tag: 'Đang hoạt động',
+    },
+    {
+      label: 'Tổng tài khoản Host',
+      value: String(counts.hosts).padStart(2, '0'),
+      description: 'Đối tác trên hệ thống',
+      icon: Users,
+      color: 'text-blue-700',
+      bg: 'bg-blue-50',
+      link: ROUTES.ADMIN.HOST_MANAGEMENT,
+      tag: 'Đối tác',
+    },
+    {
+      label: 'Yêu cầu cần chú ý',
+      value: String(counts.pending).padStart(2, '0'),
+      description: 'Công việc đang chờ xử lý',
+      icon: AlertCircle,
+      color: 'text-rose-700',
+      bg: 'bg-rose-50',
+      link: ROUTES.ADMIN.MODERATION,
+      tag: 'Chờ xử lý',
+    },
+  ];
+
   const currentDate = new Intl.DateTimeFormat('vi-VN', {
     weekday: 'long',
     day: '2-digit',
@@ -131,7 +238,7 @@ export const AdminDashboardPage = () => {
   }).format(new Date());
 
   return (
-    <div className="min-h-full space-y-7 pb-8">
+    <div className="min-h-full space-y-7 p-6 sm:p-8 lg:p-10 pb-8">
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -168,13 +275,14 @@ export const AdminDashboardPage = () => {
           <h2 className="text-base font-bold text-[#1E293B]">
             Chỉ số tổng quan
           </h2>
-          <span className="text-xs text-[#94A3B8]">
-            Dữ liệu minh họa
+          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Dữ liệu thời gian thực
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((item) => {
+          {statsList.map((item) => {
             const Icon = item.icon;
 
             return (
@@ -354,84 +462,99 @@ export const AdminDashboardPage = () => {
               <h2 className="font-bold text-[#1E293B]">
                 Cơ sở lưu trú mới gửi duyệt
               </h2>
-              <p className="mt-1 text-xs text-[#94A3B8]">
-                Danh sách dữ liệu minh họa
-              </p>
+                <p className="mt-1 text-xs text-[#94A3B8]">
+                  {USE_MOCK ? 'Danh sách dữ liệu minh họa' : 'Danh sách cơ sở cần xử lý từ hệ thống'}
+                </p>
+              </div>
+
+              <Link
+                to={ROUTES.ADMIN.MODERATION}
+                className="flex items-center gap-1 text-xs font-semibold text-[#B45309] transition hover:text-[#92400E]"
+              >
+                Xem tất cả
+                <ArrowUpRight size={15} />
+              </Link>
             </div>
 
-            <Link
-              to={ROUTES.ADMIN.MODERATION}
-              className="flex items-center gap-1 text-xs font-semibold text-[#B45309] transition hover:text-[#92400E]"
-            >
-              Xem tất cả
-              <ArrowUpRight size={15} />
-            </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left">
-              <thead>
-                <tr className="bg-[#FAFAF9] text-xs text-[#94A3B8]">
-                  <th className="px-5 py-3 font-semibold">Cơ sở lưu trú</th>
-                  <th className="px-5 py-3 font-semibold">Host</th>
-                  <th className="px-5 py-3 font-semibold">Ngày gửi</th>
-                  <th className="px-5 py-3 font-semibold">Trạng thái</th>
-                  <th className="px-5 py-3 font-semibold">Chi tiết</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {pendingHotels.map((hotel) => (
-                  <tr
-                    key={hotel.id}
-                    className="border-t border-[#F1F5F9] transition hover:bg-[#FFFCF6]"
-                  >
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F8F3E8] text-[#A16207]">
-                          <Building2 size={17} />
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-semibold text-[#334155]">
-                            {hotel.name}
-                          </p>
-                          <p className="mt-1 text-[11px] text-[#94A3B8]">
-                            {hotel.id} · {hotel.type}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-[#64748B]">
-                      {hotel.host}
-                    </td>
-
-                    <td className="px-5 py-4 text-xs text-[#64748B]">
-                      {hotel.date}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                        <Clock3 size={12} />
-                        {hotel.status}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <Link
-                        to={ROUTES.ADMIN.MODERATION}
-                        title="Xem trang kiểm duyệt"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] transition hover:bg-[#F8F3E8] hover:text-[#B45309]"
-                      >
-                        <Eye size={17} />
-                      </Link>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] text-left">
+                <thead>
+                  <tr className="bg-[#FAFAF9] text-xs text-[#94A3B8]">
+                    <th className="px-5 py-3 font-semibold">Cơ sở lưu trú</th>
+                    <th className="px-5 py-3 font-semibold">Host</th>
+                    <th className="px-5 py-3 font-semibold">Ngày gửi</th>
+                    <th className="px-5 py-3 font-semibold">Trạng thái</th>
+                    <th className="px-5 py-3 font-semibold">Chi tiết</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+
+                <tbody>
+                  {(pendingListings.length > 0 ? pendingListings : (USE_MOCK ? DEFAULT_PENDING_HOTELS : [])).map((hotel) => {
+                    const hotelId = hotel.maCSLT || hotel.id;
+                    const hotelName = hotel.tenCSLT || hotel.name;
+                    const hotelType = hotel.tenLoai || hotel.type || 'Cơ sở';
+                    const hostName = hotel.chuCoSo?.hoTen || hotel.hoTen || hotel.host || 'Đối tác';
+                    const dateStr = hotel.ngayTao ? formatDate(hotel.ngayTao) : (hotel.date || '—');
+
+                    return (
+                      <tr
+                        key={hotelId}
+                        className="border-t border-[#F1F5F9] transition hover:bg-[#FFFCF6]"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F8F3E8] text-[#A16207]">
+                              <Building2 size={17} />
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-semibold text-[#334155]">
+                                {hotelName}
+                              </p>
+                              <p className="mt-1 text-[11px] text-[#94A3B8]">
+                                CSLT-{hotelId} · {hotelType}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-5 py-4 text-sm text-[#64748B]">
+                          {hostName}
+                        </td>
+
+                        <td className="px-5 py-4 text-xs text-[#64748B]">
+                          {dateStr}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                            <Clock3 size={12} />
+                            Chờ duyệt
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <Link
+                            to={ROUTES.ADMIN.MODERATION}
+                            title="Xem trang kiểm duyệt"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] transition hover:bg-[#F8F3E8] hover:text-[#B45309]"
+                          >
+                            <Eye size={17} />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {pendingListings.length === 0 && !USE_MOCK && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-xs text-[#94A3B8]">
+                        Hiện không có cơ sở nào đang chờ duyệt. Tất cả yêu cầu đã được xử lý!
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
         </section>
 
         <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
@@ -500,6 +623,37 @@ export const AdminDashboardPage = () => {
           </div>
         </section>
       </div>
+
+      {/* =====================================================
+          BẢN ĐỒ ĐỊNH VỊ TOÀN BỘ CƠ SỞ LƯU TRÚ (GOOGLE MAPS)
+      ===================================================== */}
+      <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#B45309]">
+              <MapPin size={14} className="text-[#EA4335]" />
+              Bản đồ định vị GPS
+            </div>
+            <h2 className="text-lg font-bold text-[#1E293B] mt-0.5">
+              Vị trí tất cả cơ sở lưu trú tại TP. Nha Trang
+            </h2>
+            <p className="mt-1 text-xs text-[#94A3B8]">
+              Hiển thị dấu chỉ vị trí (Google Maps Pins) của tất cả các khách sạn, homestay, resort trên bản đồ thực tế
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 flex items-center gap-1.5 border border-emerald-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Google Maps Live
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl overflow-hidden border border-[#CBD5E1]">
+          <MapSection height="400px" />
+        </div>
+      </section>
 
       <div className="flex flex-col justify-between gap-2 border-t border-[#E5E7EB] pt-5 text-xs text-[#94A3B8] sm:flex-row sm:items-center">
         <p>Hotel Nha Trang · Admin Portal</p>

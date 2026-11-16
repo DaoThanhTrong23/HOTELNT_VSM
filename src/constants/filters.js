@@ -1,29 +1,59 @@
 import { PRICE_LIMITS } from './enums';
 
 /**
- * Danh sách loại hình cơ sở lưu trú (FR-03)
+ * Danh sách loại hình cơ sở lưu trú (FR-03) khớp chuẩn Backend DB
  */
 export const LOAI_HINH_OPTIONS = [
   'Tất cả',
   'Khách sạn',
-  'Resort',
+  'Villa',
   'Homestay',
-  'Hostel',
-  'Nhà nghỉ',
+  'Resort',
+  'Căn hộ',
 ];
 
 /**
- * Danh sách tiện ích phổ biến (FR-04 - quy tắc AND)
+ * Danh sách Phường/Xã TP. Nha Trang (FR-03, khớp chính xác ID trong database Backend)
+ */
+export const NHA_TRANG_WARDS = [
+  { id: '', name: 'Tất cả Phường / Xã' },
+  { id: '2', name: 'Phường Lộc Thọ' },
+  { id: '1', name: 'Phường Phước Hải' },
+  { id: '3', name: 'Phường Vĩnh Phước' },
+  { id: '4', name: 'Phường Vĩnh Hải' },
+  { id: '5', name: 'Phường Vĩnh Nguyên' },
+  { id: '6', name: 'Phường Phước Long' },
+];
+
+/**
+ * Giới hạn bán kính tìm kiếm km (FR-03, API_DESIGN Row 3)
+ */
+export const RADIUS_LIMITS = {
+  MIN_KM: 0, // 0 = Không giới hạn
+  MAX_KM: 20,
+};
+
+export const RADIUS_PRESETS = [
+  { label: 'Tất cả', value: 0 },
+  { label: '1 km', value: 1 },
+  { label: '3 km', value: 3 },
+  { label: '5 km', value: 5 },
+  { label: '10 km', value: 10 },
+  { label: '15 km', value: 15 },
+];
+
+/**
+ * Danh sách tiện ích phổ biến (FR-04 - quy tắc AND, khớp ID Backend)
  */
 export const AMENITY_OPTIONS = [
-  'Wifi miễn phí',
   'Hồ bơi',
-  'Giáp biển',
-  'Chỗ đỗ xe',
+  'Wifi',
+  'Gần biển',
+  'Bãi đậu xe',
   'Điều hòa',
-  'Gần nhà hàng',
-  'Buffet sáng',
-  'Spa',
+  'Bếp riêng',
+  'Gần chợ đêm',
+  'Gần trung tâm',
 ];
 
 /**

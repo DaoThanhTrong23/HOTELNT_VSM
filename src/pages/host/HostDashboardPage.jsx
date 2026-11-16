@@ -6,7 +6,7 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { HOTEL_STATUS } from '../../constants/enums';
 import { ROUTES } from '../../constants/routes';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../utils/formatters';
 import { HOST_LISTINGS_PAGE_SIZE, deleteHostListing, getHostListings, isCanceled, withdrawListing } from './api/hostApi';
 import { resolveAllowedActions } from './components/listingActions';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -162,17 +162,24 @@ const RowActions = ({ item, testId, isPending, onWithdraw, onDelete }) => (
   </div>
 );
 
-const Thumbnail = ({ item, sizeClass }) =>
-  item.duongDanAnh ? (
+const Thumbnail = ({ item, sizeClass }) => {
+  const imageUrl = resolveHotelImageUrl(item.duongDanAnh);
+  return imageUrl ? (
     <img
-      src={item.duongDanAnh}
+      src={imageUrl}
       alt={item.tenCSLT}
       loading="lazy"
+      onError={(e) => {
+        if (FALLBACK_HOTEL_IMAGE && e.currentTarget.src !== FALLBACK_HOTEL_IMAGE) {
+          e.currentTarget.src = FALLBACK_HOTEL_IMAGE;
+        }
+      }}
       className={`${sizeClass} rounded-lg object-cover shrink-0 bg-[#CBD5E1]`}
     />
   ) : (
     <div data-testid="thumbnail-placeholder" aria-hidden="true" className={`${sizeClass} rounded-lg shrink-0 bg-[#CBD5E1]`} />
   );
+};
 
 const formatPrice = (gia) => (gia !== null && gia !== undefined ? formatCurrency(gia) : null);
 

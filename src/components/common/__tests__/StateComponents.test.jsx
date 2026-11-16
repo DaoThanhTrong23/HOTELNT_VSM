@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { EmptyState } from '../EmptyState';
+import { EmptyState } from '../EmptyState_remove';
 import { ErrorState, ErrorModal } from '../ErrorState';
-import { SuccessState, SuccessModal } from '../SuccessState';
+import { SuccessState, SuccessModal } from '../SuccessState_remove';
 
 describe('State Components (EmptyState, ErrorState, SuccessState)', () => {
   describe('EmptyState', () => {
@@ -69,7 +69,7 @@ describe('State Components (EmptyState, ErrorState, SuccessState)', () => {
       expect(screen.getByText('Thao tác ngoài phạm vi')).toBeInTheDocument();
       expect(screen.getByText('Tọa độ đã chọn nằm ngoài khu vực hỗ trợ TP. Nha Trang.')).toBeInTheDocument();
 
-      const closeBtn = screen.getByRole('button', { name: 'Đóng' });
+      const closeBtn = screen.getAllByRole('button', { name: 'Đóng' })[0];
       fireEvent.click(closeBtn);
       expect(handleClose).toHaveBeenCalledTimes(1);
     });

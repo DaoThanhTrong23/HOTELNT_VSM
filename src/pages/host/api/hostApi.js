@@ -66,9 +66,16 @@ export class ApiError extends Error {
   }
 }
 
-// A2 in the plan: success bodies may be bare or wrapped in { success: true, data }.
-export const unwrapData = (body) =>
-  body && typeof body === 'object' && body.success === true && 'data' in body ? body.data : body;
+export { DEFAULT_MESSAGES };
+
+// A2 in the plan: success bodies may be bare, { success: true, data }, or { data }.
+export const unwrapData = (body) => {
+  if (!body || typeof body !== 'object') return body;
+  if ('data' in body && (body.success === true || body.success === undefined || body.code === 200 || body.status === 200)) {
+    return body.data;
+  }
+  return body;
+};
 
 const isCancelError = (err) =>
   axios.isCancel(err) || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED';
@@ -81,16 +88,29 @@ export const toApiError = (err) => {
   if (response) {
     const body = response.data;
     const serverError = body && typeof body === 'object' ? body.error : null;
-    if (serverError && typeof serverError.code === 'string') {
-      return new ApiError({
-        status: response.status,
-        code: serverError.code,
-        message: serverError.message || DEFAULT_MESSAGES[serverError.code],
-        details: serverError.details ?? null,
-        traceId: body.traceId ?? null,
-      });
-    }
-    return new ApiError({ status: response.status, code: codeFromStatus(response.status) });
+    const code =
+      (serverError && typeof serverError.code === 'string' && serverError.code) ||
+      (body && typeof body.code === 'string' && body.code) ||
+      codeFromStatus(response.status);
+
+    const rawMessage =
+      (serverError && (serverError.message || (typeof serverError === 'string' ? serverError : null))) ||
+      (body && typeof body === 'object' && (body.message || body.msg || body.error_description || (typeof body.error === 'string' ? body.error : null)));
+
+    const message = (typeof rawMessage === 'string' && rawMessage.trim()) || DEFAULT_MESSAGES[code] || DEFAULT_MESSAGES.INTERNAL_ERROR;
+
+    const details =
+      (serverError && serverError.details) ||
+      (body && typeof body === 'object' && (body.details || body.errors)) ||
+      null;
+
+    return new ApiError({
+      status: response.status,
+      code,
+      message,
+      details,
+      traceId: body?.traceId ?? null,
+    });
   }
 
   if (err?.code === 'ECONNABORTED' || err?.code === 'ETIMEDOUT') return new ApiError({ code: 'TIMEOUT' });

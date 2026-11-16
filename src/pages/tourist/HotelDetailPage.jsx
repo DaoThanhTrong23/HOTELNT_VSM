@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Check, ChevronLeft, ChevronRight, X, Phone, MapPin, Loader2, Navigation, ImageOff } from 'lucide-react';
-import { formatDate } from '../../utils/formatters';
+import { Check, ChevronLeft, ChevronRight, X, Phone, MapPin, Loader2, Navigation, ImageOff, LayoutGrid } from 'lucide-react';
+import { formatDate, resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE, DEFAULT_HOTEL_IMAGES } from '../../utils/formatters';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { AmenityIcon } from '../../components/common/AmenityIcon';
 import { FacebookLogo, ZaloLogo } from '../../components/common/icons/BrandIcons';
@@ -30,16 +30,39 @@ const formatPhoneDots = (phone) => {
   return phone;
 };
 
-const SafeImage = ({ src, alt, className = '', ...rest }) => {
+const SafeImage = ({ src, alt, className = '', fallbackIndex = 0, ...rest }) => {
   const [failed, setFailed] = useState(false);
-  if (!src || failed) {
+  const resolvedSrc = resolveHotelImageUrl(src, fallbackIndex);
+  const fallbackImg = DEFAULT_HOTEL_IMAGES[fallbackIndex % DEFAULT_HOTEL_IMAGES.length] || FALLBACK_HOTEL_IMAGE;
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!resolvedSrc && !fallbackImg) {
     return (
       <div className={`flex items-center justify-center bg-[#E5E7EB] text-[#94A3B8] ${className}`}>
         <ImageOff size={24} />
       </div>
     );
   }
-  return <img src={src} alt={alt} onError={() => setFailed(true)} className={`object-cover ${className}`} {...rest} />;
+
+  const handleImgError = (e) => {
+    if (!failed && fallbackImg && e.currentTarget.src !== fallbackImg) {
+      setFailed(true);
+      e.currentTarget.src = fallbackImg;
+    }
+  };
+
+  return (
+    <img
+      src={resolvedSrc || fallbackImg}
+      alt={alt}
+      onError={handleImgError}
+      className={`object-cover ${className}`}
+      {...rest}
+    />
+  );
 };
 
 /* ================================================================== */
@@ -95,7 +118,7 @@ const Lightbox = ({ images, startIndex, name, onClose }) => {
           touchX.current = null;
         }}
       >
-        <SafeImage key={active} src={images[active]?.url} alt={`${name} - ảnh ${active + 1}`} className="max-w-full max-h-full rounded-lg object-contain" />
+        <SafeImage key={active} src={images[active]?.url} fallbackIndex={active} alt={`${name} - ảnh ${active + 1}`} className="max-w-full max-h-full rounded-lg object-contain" />
         {total > 1 && (
           <>
             <button type="button" onClick={() => go(active - 1)} aria-label="Ảnh trước" className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/90 text-black items-center justify-center hover:bg-white cursor-pointer">
@@ -121,7 +144,7 @@ const Lightbox = ({ images, startIndex, name, onClose }) => {
                 idx === active ? 'border-white opacity-100' : 'border-transparent opacity-50 hover:opacity-90'
               }`}
             >
-              <SafeImage src={img.url} alt="" loading="lazy" className="w-full h-full" />
+              <SafeImage src={img.url} fallbackIndex={idx} alt="" loading="lazy" className="w-full h-full" />
             </button>
           ))}
         </div>
@@ -131,42 +154,228 @@ const Lightbox = ({ images, startIndex, name, onClose }) => {
 };
 
 /* ================================================================== */
-/* ẢNH: LƯỚI 5 ẢNH (WEB) + CAROUSEL VUỐT (MOBILE)                      */
+/* ẢNH: BỐ CỤC THÍCH ỨNG THEO SỐ LƯỢNG ẢNH (WEB) + CAROUSEL (MOBILE)    */
 /* ================================================================== */
-const DesktopGallery = ({ images, name, onOpen }) => {
-  const [main, ...rest] = images;
-  const tiles = Array.from({ length: 4 }, (_, i) => rest[i]);
+const AllPhotosButton = ({ count, onClick }) => {
+  if (count <= 1) return null;
   return (
-    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-1 h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white">
-      <button type="button" onClick={() => onOpen(0)} className="col-span-2 row-span-2 cursor-pointer overflow-hidden group">
-        <SafeImage src={main?.url} alt={name} className="w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-[#1E293B] font-medium text-xs shadow-md border border-black/10 backdrop-blur-sm transition-all hover:shadow-lg active:scale-95 cursor-pointer z-10"
+    >
+      <LayoutGrid size={13} />
+      <span>Xem tất cả {count} ảnh</span>
+    </button>
+  );
+};
+
+const DesktopGallery = ({ images, name, onOpen }) => {
+  const count = images?.length || 0;
+
+  // Trường hợp 0 ảnh: hiển thị ảnh mặc định
+  if (count === 0) {
+    return (
+      <div className="hidden md:block h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white">
+        <SafeImage src={null} fallbackIndex={0} alt={name} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  // Trường hợp 1 ảnh: Banner tràn ngang
+  if (count === 1) {
+    return (
+      <div className="hidden md:block relative h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white">
+        <button
+          type="button"
+          onClick={() => onOpen(0)}
+          className="w-full h-full cursor-pointer overflow-hidden group block"
+        >
+          <SafeImage
+            src={images[0]?.url}
+            fallbackIndex={0}
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          />
+        </button>
+      </div>
+    );
+  }
+
+  // Trường hợp 2 ảnh: Chia đôi 50/50
+  if (count === 2) {
+    return (
+      <div className="hidden md:grid grid-cols-2 gap-1.5 h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white relative">
+        {images.map((img, i) => (
+          <button
+            key={img?.mediaId ?? i}
+            type="button"
+            onClick={() => onOpen(i)}
+            className="relative cursor-pointer overflow-hidden group h-full"
+          >
+            <SafeImage
+              src={img?.url}
+              fallbackIndex={i}
+              alt={`${name} - ảnh ${i + 1}`}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          </button>
+        ))}
+        <AllPhotosButton count={count} onClick={() => onOpen(0)} />
+      </div>
+    );
+  }
+
+  // Trường hợp 3 ảnh: Ảnh chính lớn bên trái (chiếm 2/3), 2 ảnh phụ xếp dọc bên phải (mỗi ảnh 1/3)
+  if (count === 3) {
+    return (
+      <div className="hidden md:grid grid-cols-3 grid-rows-2 gap-1.5 h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white relative">
+        <button
+          type="button"
+          onClick={() => onOpen(0)}
+          className="col-span-2 row-span-2 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[0]?.url}
+            fallbackIndex={0}
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpen(1)}
+          className="col-span-1 row-span-1 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[1]?.url}
+            fallbackIndex={1}
+            alt={`${name} - ảnh 2`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpen(2)}
+          className="col-span-1 row-span-1 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[2]?.url}
+            fallbackIndex={2}
+            alt={`${name} - ảnh 3`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        </button>
+        <AllPhotosButton count={count} onClick={() => onOpen(0)} />
+      </div>
+    );
+  }
+
+  // Trường hợp 4 ảnh: Ảnh chính lớn bên trái (50%), trên phải 1 ảnh rộng (50%), dưới phải 2 ảnh (25% mỗi ảnh)
+  if (count === 4) {
+    return (
+      <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-1.5 h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white relative">
+        <button
+          type="button"
+          onClick={() => onOpen(0)}
+          className="col-span-2 row-span-2 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[0]?.url}
+            fallbackIndex={0}
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpen(1)}
+          className="col-span-2 row-span-1 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[1]?.url}
+            fallbackIndex={1}
+            alt={`${name} - ảnh 2`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpen(2)}
+          className="col-span-1 row-span-1 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[2]?.url}
+            fallbackIndex={2}
+            alt={`${name} - ảnh 3`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpen(3)}
+          className="col-span-1 row-span-1 cursor-pointer overflow-hidden group"
+        >
+          <SafeImage
+            src={images[3]?.url}
+            fallbackIndex={3}
+            alt={`${name} - ảnh 4`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        </button>
+        <AllPhotosButton count={count} onClick={() => onOpen(0)} />
+      </div>
+    );
+  }
+
+  // Trường hợp >= 5 ảnh: Lưới 5 ô chuẩn (1 ảnh lớn bên trái + 4 ảnh phụ bên phải)
+  const main = images[0];
+  const tiles = images.slice(1, 5);
+  const remaining = count - 5;
+
+  return (
+    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-1.5 h-[340px] lg:h-[400px] rounded-2xl overflow-hidden border border-black bg-white relative">
+      <button
+        type="button"
+        onClick={() => onOpen(0)}
+        className="col-span-2 row-span-2 cursor-pointer overflow-hidden group"
+      >
+        <SafeImage
+          src={main?.url}
+          fallbackIndex={0}
+          alt={name}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+        />
       </button>
       {tiles.map((img, i) => {
         const index = i + 1;
-        const isLast = i === 3;
+        const isFifth = i === 3;
         return (
           <button
-            key={img?.mediaId ?? `empty-${i}`}
+            key={img?.mediaId ?? index}
             type="button"
-            onClick={() => (img ? onOpen(index) : isLast && images.length > 1 && onOpen(0))}
-            disabled={!img && !(isLast && images.length > 1)}
-            className="relative overflow-hidden group cursor-pointer disabled:cursor-default"
+            onClick={() => onOpen(index)}
+            className="relative cursor-pointer overflow-hidden group"
           >
-            {img ? (
-              <SafeImage src={img.url} alt={`${name} - ảnh ${index + 1}`} loading="lazy" className="w-full h-full transition-transform duration-500 group-hover:scale-[1.05]" />
-            ) : (
-              <div className="w-full h-full bg-[#F1EEE4]" />
-            )}
-            {isLast && images.length > 1 && (
-              <span className="absolute inset-0 flex items-center justify-center">
-                <span className="px-5 py-2.5 rounded-full bg-black/55 backdrop-blur-sm text-white text-xs font-medium hover:bg-black/70 transition-colors">
-                  Xem thêm ảnh
-                </span>
+            <SafeImage
+              src={img?.url}
+              fallbackIndex={index}
+              alt={`${name} - ảnh ${index + 1}`}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
+            />
+            {isFifth && remaining > 0 && (
+              <span className="absolute inset-0 bg-black/45 flex items-center justify-center text-white font-semibold text-sm group-hover:bg-black/55 transition-colors">
+                +{remaining} ảnh
               </span>
             )}
           </button>
         );
       })}
+      <AllPhotosButton count={count} onClick={() => onOpen(0)} />
     </div>
   );
 };
@@ -174,28 +383,103 @@ const DesktopGallery = ({ images, name, onOpen }) => {
 const MobileGallery = ({ images, name, onOpen }) => {
   const [active, setActive] = useState(0);
   const trackRef = useRef(null);
+  const count = images?.length || 0;
+
   const onScroll = () => {
     const el = trackRef.current;
     if (!el) return;
     setActive(Math.round(el.scrollLeft / el.clientWidth));
   };
+
+  const scrollToIndex = (index) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const targetX = index * el.clientWidth;
+    el.scrollTo({ left: targetX, behavior: 'smooth' });
+    setActive(index);
+  };
+
   return (
-    <div className="md:hidden relative -mx-4 sm:-mx-6">
+    <div className="md:hidden relative rounded-2xl sm:rounded-3xl overflow-hidden border border-[#CBD5E1] shadow-xs bg-[#F8F4E8] aspect-[16/10] sm:aspect-[16/9]">
+      {/* Hàng ảnh trượt ngang snap mượt mà */}
       <div
         ref={trackRef}
         onScroll={onScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory aspect-[4/3] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full h-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {(images.length ? images : [null]).map((img, idx) => (
-          <button key={img?.mediaId ?? idx} type="button" onClick={() => img && onOpen(idx)} className="w-full h-full flex-shrink-0 snap-center">
-            <SafeImage src={img?.url} alt={`${name} - ảnh ${idx + 1}`} loading={idx === 0 ? 'eager' : 'lazy'} className="w-full h-full" />
+        {(count ? images : [null]).map((img, idx) => (
+          <button
+            key={img?.mediaId ?? idx}
+            type="button"
+            onClick={() => onOpen(idx)}
+            className="w-full h-full flex-shrink-0 snap-center cursor-pointer relative block"
+            aria-label={`Xem ảnh ${idx + 1}`}
+          >
+            <SafeImage
+              src={img?.url}
+              fallbackIndex={idx}
+              alt={`${name} - ảnh ${idx + 1}`}
+              loading={idx === 0 ? 'eager' : 'lazy'}
+              className="w-full h-full object-cover"
+            />
           </button>
         ))}
       </div>
-      {images.length > 0 && (
-        <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-md bg-black/60 text-white text-xs font-medium tabular-nums">
-          {active + 1}/{images.length} ảnh
-        </span>
+
+      {/* Nút mũi tên chuyển ảnh trái/phải trên mobile */}
+      {count > 1 && active > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            scrollToIndex(active - 1);
+          }}
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-xs transition active:scale-95 shadow-sm z-10 cursor-pointer"
+          aria-label="Ảnh trước"
+        >
+          <ChevronLeft size={18} />
+        </button>
+      )}
+
+      {count > 1 && active < count - 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            scrollToIndex(active + 1);
+          }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-xs transition active:scale-95 shadow-sm z-10 cursor-pointer"
+          aria-label="Ảnh kế tiếp"
+        >
+          <ChevronRight size={18} />
+        </button>
+      )}
+
+      {/* Dải chấm tròn định vị trang ảnh khi có từ 2 đến 7 ảnh */}
+      {count > 1 && count <= 7 && (
+        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-xs z-10 pointer-events-none">
+          {images.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-200 ${
+                i === active ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pill đếm số lượng ảnh góc dưới phải */}
+      {count > 0 && (
+        <button
+          type="button"
+          onClick={() => onOpen(active)}
+          className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/70 hover:bg-black/85 backdrop-blur-xs text-white text-[11px] font-semibold tabular-nums border border-white/20 shadow-sm z-10 flex items-center gap-1 cursor-pointer"
+          title="Xem tất cả ảnh"
+        >
+          <LayoutGrid size={11} />
+          <span>{active + 1}/{count}</span>
+        </button>
       )}
     </div>
   );
@@ -228,7 +512,7 @@ const DistanceText = ({ distance, status, onLocate, prefix = 'Cách vị trí c�
   }
   return (
     <button type="button" onClick={onLocate} className="inline-flex items-center gap-1.5 underline underline-offset-2 cursor-pointer hover:text-[#B45309]">
-      <Navigation size={13} />
+      {/* <Navigation size={13} /> */}
       {status === 'denied'
         ? 'Bạn chưa cho phép truy cập vị trí. Bấm để thử lại'
         : status === 'error'
@@ -337,7 +621,7 @@ export const HotelDetailPage = () => {
   const hostName = hotel.chuCoSo?.hoTen;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 md:pt-12 pb-32 lg:pb-16">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 md:pt-10 pb-32 lg:pb-16">
       <MobileGallery images={images} name={hotel.tenCSLT} onOpen={setLightboxIndex} />
       <DesktopGallery images={images} name={hotel.tenCSLT} onOpen={setLightboxIndex} />
 
@@ -447,7 +731,7 @@ export const HotelDetailPage = () => {
               {formatPrice(hotel.gia)}
               <span className="text-[11px] font-normal text-[#64748B]">/đêm</span>
             </p>
-            <p className="mt-2 flex items-center gap-1.5 text-[10px] text-[#15803D]">
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#15803D]">
               <span className="w-1 h-1 rounded-full bg-[#22C55E]" /> Giá niêm yết trực tiếp từ Host
             </p>
 
@@ -458,20 +742,36 @@ export const HotelDetailPage = () => {
                 </a>
               )}
               {facebook && (
-                <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Fanpage Facebook" title="Fanpage Facebook" className="flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-[#F8F4E8] hover:bg-[#F1EBD8] transition-colors">
-                  <FacebookLogo size={24} />
+                <a
+                  href={facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Fanpage Facebook"
+                  title="Fanpage Facebook"
+                  className="flex items-center justify-center gap-2 h-[32px] rounded-full border border-[#64748B] bg-[#F8F4E8] hover:bg-[#F1EBD8] text-xs font-semibold text-black transition-colors"
+                >
+                  <FacebookLogo size={18} />
+                  <span>Facebook</span>
                 </a>
               )}
               {zalo && (
-                <a href={zalo} target="_blank" rel="noopener noreferrer" aria-label="Chat Zalo" title="Chat Zalo" className="flex items-center justify-center h-[30px] rounded-full border border-[#64748B] bg-white hover:bg-[#F8F4E8] transition-colors">
-                  <ZaloLogo size={24} />
+                <a
+                  href={zalo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Chat Zalo"
+                  title="Chat Zalo"
+                  className="flex items-center justify-center gap-2 h-[32px] rounded-full border border-[#64748B] bg-white hover:bg-[#F8F4E8] text-xs font-semibold text-black transition-colors"
+                >
+                  <ZaloLogo size={18} />
+                  <span>Zalo</span>
                 </a>
               )}
               {!tel && !facebook && !zalo && (
                 <p className="text-[11px] text-[#64748B] text-center py-2">Cơ sở chưa cập nhật thông tin liên hệ</p>
               )}
             </div>
-            <p className="mt-2 mb-1 text-center text-[9px] text-[#64748B]">Liên hệ trực tiếp, không qua trung gian</p>
+            <p className="mt-2 mb-1 text-center text-[11px] text-[#64748B]">Liên hệ trực tiếp, không qua trung gian</p>
           </Card>
         </aside>
       </div>

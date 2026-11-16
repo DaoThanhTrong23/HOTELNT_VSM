@@ -30,8 +30,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
   };
 
-  const isHost = user?.role === USER_ROLES.HOST;
-  const isAdmin = user?.role === USER_ROLES.ADMIN;
+  const userRole = user?.role || user?.vaiTro;
+  const isHost = userRole === USER_ROLES.HOST;
+  const isAdmin = userRole === USER_ROLES.ADMIN;
 
   return (
     <AuthContext.Provider

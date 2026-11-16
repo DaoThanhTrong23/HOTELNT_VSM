@@ -136,14 +136,13 @@ export const HostLoginPage = () => {
         };
       }
 
-      // 2. Gọi API đăng nhập Host (POST /auth/signin)
+      // 2. Gọi API đăng nhập Host (POST /auth/signin theo API_DESIGN)
       let resData = null;
-      if (authService?.login) {
-        const res = await authService.login({
+      const loginFn = authService?.signin || authService?.login;
+      if (loginFn) {
+        const res = await loginFn({
           loginIdentity: cleanIdentity,
           matKhau: password,
-          email: cleanIdentity,
-          password: password,
         });
         resData = res?.data || res;
       }
@@ -156,16 +155,27 @@ export const HostLoginPage = () => {
       // Reset các lần thử sai
       setFailedAttempts(0);
 
-      navigate(`${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(cleanIdentity)}&flow=SIGNIN`, {
-        state: {
-          flow: 'SIGNIN',
-          email: cleanIdentity,
-          phone: cleanIdentity.match(/^0\d+/) ? cleanIdentity : '',
-          challengeId,
-          otpExpiresIn,
-          resendAfter,
-        },
-      });
+      try {
+        sessionStorage.setItem('hotelnt_otp_flow', 'SIGNIN');
+        sessionStorage.setItem('hotelnt_otp_challenge', challengeId);
+        sessionStorage.setItem(`hotelnt_otp_challenge_${cleanIdentity}`, challengeId);
+      } catch {
+        /* ignore */
+      }
+
+      navigate(
+        `${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(cleanIdentity)}&flow=SIGNIN&challengeId=${encodeURIComponent(challengeId)}`,
+        {
+          state: {
+            flow: 'SIGNIN',
+            email: cleanIdentity,
+            phone: cleanIdentity.match(/^0\d+/) ? cleanIdentity : '',
+            challengeId,
+            otpExpiresIn,
+            resendAfter,
+          },
+        }
+      );
     } catch (apiErr) {
       const errResponse = apiErr?.response?.data?.error;
       const statusCode = apiErr?.response?.status;
@@ -243,17 +253,19 @@ export const HostLoginPage = () => {
 
       // Môi trường Dev UI thử nghiệm khi chưa chạy backend API:
       // Cho phép đăng nhập thành công bước 1 và chuyển tiếp sang bước OTP
-      const fallbackChallengeId = 'chg-mock-' + Date.now();
-      navigate(`${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(cleanIdentity)}&flow=SIGNIN`, {
-        state: {
-          flow: 'SIGNIN',
-          email: cleanIdentity,
-          phone: cleanIdentity.match(/^0\d+/) ? cleanIdentity : '',
-          challengeId: fallbackChallengeId,
-          otpExpiresIn: 300,
-          resendAfter: 60,
-        },
-      });
+      navigate(
+        `${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(cleanIdentity)}&flow=SIGNIN&challengeId=${encodeURIComponent(fallbackChallengeId)}`,
+        {
+          state: {
+            flow: 'SIGNIN',
+            email: cleanIdentity,
+            phone: cleanIdentity.match(/^0\d+/) ? cleanIdentity : '',
+            challengeId: fallbackChallengeId,
+            otpExpiresIn: 300,
+            resendAfter: 60,
+          },
+        }
+      );
     } finally {
       setLoading(false);
     }
@@ -263,10 +275,10 @@ export const HostLoginPage = () => {
     <div className="w-full space-y-6">
       {/* TIÊU ĐỀ */}
       <div className="text-center space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight text-black">Đăng Nhập Dành Cho Host</h2>
-        <p className="text-xs text-[#64748B]">
+        <h2 className="text-2xl font-bold tracking-tight text-black">Đăng nhập dành cho host</h2>
+        {/* <p className="text-xs text-[#64748B]">
           Quản lý và cập nhật cơ sở lưu trú của bạn tại TP. Nha Trang
-        </p>
+        </p> */}
       </div>
 
       {/* CẢNH BÁO TẠM KHÓA TÀI KHOẢN (ACCOUNT_TEMP_LOCKED) */}
@@ -291,7 +303,7 @@ export const HostLoginPage = () => {
               <Clock size={14} className="text-[#DC2626]" />
               Thời gian mở khóa sau:
             </span>
-            <span className="font-mono text-base font-extrabold text-[#DC2626] tracking-wider">
+            <span className="text-base font-extrabold text-[#DC2626] tracking-wider">
               {formattedCountdown}
             </span>
           </div>
@@ -325,7 +337,7 @@ export const HostLoginPage = () => {
         {/* EMAIL HOẶC SĐT */}
         <div className="space-y-1">
           <label htmlFor="identifier" className="text-xs font-semibold text-black">
-            Email hoặc Số điện thoại
+            Email hoặc số điện thoại
           </label>
           <div className="relative flex items-center">
             <Mail className="absolute left-3.5 text-[#64748B]" size={16} />
@@ -426,7 +438,7 @@ export const HostLoginPage = () => {
             </div>
           ) : (
             <>
-              <span>Đăng nhập & Nhận mã OTP</span>
+              <span>Đăng nhập và nhận mã OTP</span>
               <ArrowRight size={16} />
             </>
           )}
@@ -448,8 +460,7 @@ export const HostLoginPage = () => {
             to={ROUTES.ADMIN.LOGIN}
             className="font-semibold text-black hover:underline inline-flex items-center gap-1"
           >
-            <ShieldCheck size={12} className="text-[#D97706]" />
-            Đăng nhập Admin
+            Đăng nhập admin
           </Link>
         </p>
       </div>

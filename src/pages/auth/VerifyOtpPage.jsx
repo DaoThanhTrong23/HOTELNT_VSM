@@ -21,11 +21,45 @@ export const VerifyOtpPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Xác định thông tin truyền từ trang trước (qua location.state hoặc query params)
+  // Xác định thông tin truyền từ trang trước (qua location.state, query params hoặc sessionStorage)
   const stateData = location.state || {};
   const email = stateData.email || searchParams.get('email') || 'bạn';
-  const flowType = stateData.flow || searchParams.get('type') || searchParams.get('flow') || 'SIGNUP'; // 'SIGNUP' | 'SIGNIN' | 'FORGOT_PASSWORD'
-  const challengeId = stateData.challengeId || stateData.registrationId || searchParams.get('challengeId') || 'challenge-mock';
+  const flowType =
+    stateData.flow ||
+    searchParams.get('flow') ||
+    sessionStorage.getItem('hotelnt_otp_flow') ||
+    (searchParams.get('token') ? 'FORGOT_PASSWORD' : 'SIGNUP');
+
+  const initialChallengeId =
+    stateData.challengeId ||
+    stateData.registrationId ||
+    searchParams.get('challengeId') ||
+    searchParams.get('registrationId') ||
+    sessionStorage.getItem('hotelnt_otp_challenge') ||
+    sessionStorage.getItem(`hotelnt_otp_challenge_${email}`) ||
+    '';
+  const [currentChallengeId, setCurrentChallengeId] = useState(initialChallengeId);
+
+  // Lưu challengeId và flow vào sessionStorage để không bị mất khi F5
+  useEffect(() => {
+    if (currentChallengeId) {
+      try {
+        sessionStorage.setItem('hotelnt_otp_challenge', currentChallengeId);
+        if (email && email !== 'bạn') {
+          sessionStorage.setItem(`hotelnt_otp_challenge_${email}`, currentChallengeId);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    if (flowType) {
+      try {
+        sessionStorage.setItem('hotelnt_otp_flow', flowType);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [currentChallengeId, email, flowType]);
 
   // State quản lý 6 ô OTP
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -133,7 +167,15 @@ export const VerifyOtpPage = () => {
 
     try {
       if (authService?.resendOtp) {
-        await authService.resendOtp(email);
+        const res = await authService.resendOtp({
+          challengeId: currentChallengeId,
+          registrationId: currentChallengeId,
+          email,
+        });
+        const newChallenge = res?.data?.challengeId || res?.data?.registrationId;
+        if (newChallenge) {
+          setCurrentChallengeId(newChallenge);
+        }
       }
       // Reset trạng thái đếm ngược & số lần thử
       setCountdown(AUTH_RULES.OTP_RESEND_COOLDOWN || 60);
@@ -154,13 +196,14 @@ export const VerifyOtpPage = () => {
           message: `Vui lòng chờ đủ ${retry} giây trước khi gửi lại mã.`,
         });
       } else {
-        // Fallback mô phỏng thành công
-        setCountdown(AUTH_RULES.OTP_RESEND_COOLDOWN || 60);
-        setAttemptsLeft(AUTH_RULES.MAX_FAILED_ATTEMPTS || 5);
-        setIsLocked(false);
-        setOtp(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-        setSuccessNotice(`Đã gửi lại mã xác thực mới đến ${email}.`);
+        const msg =
+          errData?.message ||
+          apiErr?.message ||
+          'Không thể gửi lại mã OTP. Vui lòng kiểm tra email hoặc thử lại sau.';
+        setError({
+          code: errData?.code || 'RESEND_FAILED',
+          message: msg,
+        });
       }
     } finally {
       setLoading(false);
@@ -217,21 +260,43 @@ export const VerifyOtpPage = () => {
         };
       }
 
-      // 2. Gọi API thực tế
+      // 2. Gọi API thực tế theo chuẩn API_DESIGN
       let verifyRes = null;
-      if (authService?.verifyOtp) {
+      if (flowType === 'SIGNUP' && authService?.signupVerify) {
+        verifyRes = await authService.signupVerify({
+          registrationId: currentChallengeId,
+          otpCode: fullOtp,
+          email,
+        });
+      } else if (flowType === 'FORGOT_PASSWORD' && authService?.forgotPasswordVerify) {
+        verifyRes = await authService.forgotPasswordVerify({
+          challengeId: currentChallengeId,
+          otpCode: fullOtp,
+          email,
+        });
+      } else if (authService?.signinVerify) {
+        verifyRes = await authService.signinVerify({
+          challengeId: currentChallengeId,
+          otpCode: fullOtp,
+          email,
+        });
+      } else if (authService?.verifyOtp) {
         verifyRes = await authService.verifyOtp({
           email,
-          challengeId,
-          otp: fullOtp,
+          challengeId: currentChallengeId,
+          registrationId: currentChallengeId,
           otpCode: fullOtp,
+          flow: flowType,
         });
       }
 
       // 3. Xử lý thành công theo từng luồng
       if (flowType === 'FORGOT_PASSWORD') {
         // Luồng quên MK -> điều hướng sang màn hình thiết lập mật khẩu mới
-        const token = verifyRes?.data?.resetToken || 'reset-token-' + Date.now();
+        const token =
+          verifyRes?.resetToken ||
+          verifyRes?.data?.resetToken ||
+          'reset-token-' + Date.now();
         navigate(`${ROUTES.FORGOT_PASSWORD}?token=${token}&email=${encodeURIComponent(email)}`, {
           state: {
             resetToken: token,
@@ -240,21 +305,56 @@ export const VerifyOtpPage = () => {
         });
       } else {
         // Luồng Đăng ký hoặc Đăng nhập Host -> Đăng nhập và vào Dashboard
-        login(
-          {
-            id: 'host-' + Date.now(),
-            name: stateData.name || 'Chủ cơ sở HotelNT',
-            email,
-            phone: stateData.phone || '',
-            role: USER_ROLES.HOST,
-          },
-          'jwt_access_token_hotelnt'
-        );
+        const accessToken = verifyRes?.accessToken || verifyRes?.data?.accessToken;
+        const refreshToken = verifyRes?.refreshToken || verifyRes?.data?.refreshToken;
+        const rawUser = verifyRes?.userInfo || verifyRes?.data?.userInfo;
+
+        // Nếu Backend thật không trả về token:
+        if (!accessToken && import.meta.env.VITE_USE_MOCK !== 'true') {
+          throw new Error('Máy chủ không trả về phiên đăng nhập hợp lệ. Vui lòng kiểm tra lại mã OTP.');
+        }
+
+        const validToken = accessToken || 'jwt_host_access_' + Date.now();
+
+        if (refreshToken) {
+          try {
+            localStorage.setItem('refreshToken', refreshToken);
+          } catch {
+            /* ignore */
+          }
+        }
+
+        // Xóa challenge tạm thời khi đã hoàn tất xác thực
+        try {
+          sessionStorage.removeItem('hotelnt_otp_challenge');
+          sessionStorage.removeItem('hotelnt_otp_flow');
+        } catch {
+          /* ignore */
+        }
+
+        const userInfo = {
+          id: rawUser?.id || 'host-' + Date.now(),
+          name: rawUser?.hoTen || rawUser?.name || stateData.name || 'Chủ cơ sở HotelNT',
+          hoTen: rawUser?.hoTen || rawUser?.name || stateData.name || 'Chủ cơ sở HotelNT',
+          email: rawUser?.email || email,
+          phone: rawUser?.soDienThoai || rawUser?.phone || stateData.phone || '',
+          soDienThoai: rawUser?.soDienThoai || rawUser?.phone || stateData.phone || '',
+          role: rawUser?.vaiTro || rawUser?.role || USER_ROLES.HOST,
+          vaiTro: rawUser?.vaiTro || rawUser?.role || USER_ROLES.HOST,
+        };
+
+        login(userInfo, validToken);
         navigate(ROUTES.HOST.DASHBOARD);
       }
     } catch (apiErr) {
+      console.warn('Lỗi xác thực OTP:', apiErr);
       const errData = apiErr?.response?.data?.error;
       const code = errData?.code;
+      const message =
+        errData?.message ||
+        apiErr?.response?.data?.message ||
+        apiErr?.message ||
+        'Xác thực mã OTP không thành công.';
 
       if (code === 'OTP_INVALID') {
         const remaining = Math.max(0, attemptsLeft - 1);
@@ -287,27 +387,36 @@ export const VerifyOtpPage = () => {
             'Bạn đã nhập sai mã OTP quá 5 lần. Phiên xác thực tạm thời bị khóa. Vui lòng gửi lại mã mới.',
         });
       } else {
-        // Môi trường FE test UI khi chưa bật backend
-        if (flowType === 'FORGOT_PASSWORD') {
-          const token = 'reset-token-' + Date.now();
-          navigate(`${ROUTES.FORGOT_PASSWORD}?token=${token}&email=${encodeURIComponent(email)}`, {
-            state: {
-              resetToken: token,
-              email,
-            },
-          });
+        const isMock = import.meta.env.VITE_USE_MOCK === 'true';
+        if (isMock && !apiErr?.response) {
+          // Môi trường mock:
+          if (flowType === 'FORGOT_PASSWORD') {
+            const token = 'reset-token-' + Date.now();
+            navigate(`${ROUTES.FORGOT_PASSWORD}?token=${token}&email=${encodeURIComponent(email)}`, {
+              state: {
+                resetToken: token,
+                email,
+              },
+            });
+          } else {
+            login(
+              {
+                id: 'host-' + Date.now(),
+                name: stateData.name || 'Chủ cơ sở HotelNT',
+                email,
+                phone: stateData.phone || '',
+                role: USER_ROLES.HOST,
+              },
+              'jwt_host_access_' + Date.now()
+            );
+            navigate(ROUTES.HOST.DASHBOARD);
+          }
         } else {
-          login(
-            {
-              id: 'host-' + Date.now(),
-              name: stateData.name || 'Chủ cơ sở HotelNT',
-              email,
-              phone: stateData.phone || '',
-              role: USER_ROLES.HOST,
-            },
-            'jwt_access_token_hotelnt'
-          );
-          navigate(ROUTES.HOST.DASHBOARD);
+          // Môi trường API thật: Báo lỗi trực tiếp trên giao diện để người dùng biết
+          setError({
+            code: code || 'VERIFY_FAILED',
+            message,
+          });
         }
       }
     } finally {

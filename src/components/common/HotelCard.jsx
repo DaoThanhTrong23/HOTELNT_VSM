@@ -1,40 +1,51 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Star, Phone, MessageSquare } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
+import { MapPin, Phone } from 'lucide-react';
+import { formatCurrency, resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE, DEFAULT_HOTEL_IMAGES } from '../../utils/formatters';
+import { buildTelLink, buildZaloLink, buildFacebookLink } from '../../utils/contactLinks';
+import { ZaloLogo, FacebookLogo } from '../common/icons/BrandIcons';
 
 export const HotelCard = ({ hotel }) => {
-  const {
-    id,
-    name,
-    type = 'Khách sạn',
-    thumbnail,
-    address,
-    minPrice,
-    maxPrice,
-    rating = 4.8,
-    phone,
-    zalo,
-    amenities = [],
-  } = hotel;
+  if (!hotel) return null;
+
+  const id = hotel.maCSLT ?? hotel.id;
+  const name = hotel.tenCSLT ?? hotel.name;
+  const thumbnail = hotel.duongDanAnh ?? hotel.thumbnail ?? hotel.hinhAnh?.[0]?.url;
+  const address = hotel.diaChiChiTiet ?? hotel.address;
+  const minPrice = hotel.gia ?? hotel.minPrice;
+  const rawPhone = hotel.lienHe?.soDienThoai ?? hotel.phone;
+  const rawZalo = hotel.lienHe?.zalo ?? hotel.zalo ?? rawPhone;
+  const rawFacebook = hotel.lienHe?.facebook ?? hotel.facebook;
+
+  const telLink = buildTelLink(rawPhone);
+  const zaloLink = buildZaloLink(rawZalo);
+  const facebookLink = buildFacebookLink(rawFacebook);
+
+  const amenities = hotel.tienIchNoiBat
+    ? hotel.tienIchNoiBat.map((t) => (typeof t === 'string' ? t : t.tenTienIch))
+    : (hotel.amenities || []);
+
+  const imageUrl = resolveHotelImageUrl(thumbnail, id);
 
   return (
     <div className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col">
       {/* THUMBNAIL */}
       <div className="relative aspect-video bg-[#CBD5E1] overflow-hidden">
-        {thumbnail ? (
-          <img src={thumbnail} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={name}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              const idx = typeof id === 'number' ? Math.abs(id) : 0;
+              e.currentTarget.src = DEFAULT_HOTEL_IMAGES[idx % DEFAULT_HOTEL_IMAGES.length] || FALLBACK_HOTEL_IMAGE;
+            }}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#64748B] text-sm">
             Chưa có hình ảnh
           </div>
         )}
-        <span className="absolute top-3 left-3 bg-black/75 backdrop-blur-xs text-white text-xs px-2.5 py-1 rounded-full font-medium">
-          {type}
-        </span>
-        <span className="absolute top-3 right-3 bg-white/95 backdrop-blur-xs text-black text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 shadow-xs">
-          <Star size={12} className="fill-[#D97706] text-[#D97706]" />
-          {rating}
-        </span>
       </div>
 
       {/* CONTENT */}
@@ -68,35 +79,49 @@ export const HotelCard = ({ hotel }) => {
         <div className="pt-3 border-t border-[#CBD5E1]/60 flex items-center justify-between">
           <div>
             <span className="text-xs text-[#64748B] block">Giá từ:</span>
-            <span className="font-bold text-base text-black">{formatCurrency(minPrice)}</span>
+            <div className="text-sm font-bold text-black">
+              {formatCurrency(minPrice)}
+              <span className="text-xs font-normal text-[#64748B]"> /đêm</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {phone && (
+          <div className="flex items-center gap-1.5">
+            {telLink && (
               <a
-                href={`tel:${phone}`}
-                title="Gọi điện"
-                className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8]"
+                href={telLink}
+                title={`Gọi ${rawPhone}`}
+                className="p-2 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
               >
                 <Phone size={14} />
               </a>
             )}
-            {zalo && (
+            {zaloLink && (
               <a
-                href={`https://zalo.me/${zalo}`}
+                href={zaloLink}
                 target="_blank"
                 rel="noreferrer"
-                title="Chat Zalo"
-                className="w-8 h-8 rounded-full border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-[#F8F4E8]"
+                title="Nhắn Zalo"
+                className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
               >
-                <MessageSquare size={14} />
+                <ZaloLogo size={18} />
+              </a>
+            )}
+            {facebookLink && (
+              <a
+                href={facebookLink}
+                target="_blank"
+                rel="noreferrer"
+                title="Fanpage Facebook"
+                className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:text-black hover:bg-[#F8F4E8] transition-colors flex items-center justify-center"
+              >
+                <FacebookLogo size={18} />
               </a>
             )}
             <Link
               to={`/hotel/${id}`}
-              className="px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-semibold hover:opacity-85 transition-opacity"
+              className="px-3 py-1.5 rounded-xl bg-black text-white text-xs font-semibold hover:bg-neutral-800 transition-colors"
             >
-              Xem chi tiết
+              Chi tiết
             </Link>
           </div>
         </div>
@@ -104,3 +129,5 @@ export const HotelCard = ({ hotel }) => {
     </div>
   );
 };
+
+export default HotelCard;

@@ -110,15 +110,19 @@ export const ForgotPasswordPage = () => {
 
   // CHUYỂN TIẾP SANG TRANG VERIFY OTP
   const handleGoToOtp = () => {
-    navigate(`${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(emailOrPhone.trim())}&flow=FORGOT_PASSWORD`, {
-      state: {
-        flow: 'FORGOT_PASSWORD',
-        email: emailOrPhone.trim(),
-        challengeId: 'chg-fp-' + Date.now(),
-        otpExpiresIn: 300,
-        resendAfter: 60,
-      },
-    });
+    const cid = 'chg-fp-' + Date.now();
+    navigate(
+      `${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(emailOrPhone.trim())}&flow=FORGOT_PASSWORD&challengeId=${encodeURIComponent(cid)}`,
+      {
+        state: {
+          flow: 'FORGOT_PASSWORD',
+          email: emailOrPhone.trim(),
+          challengeId: cid,
+          otpExpiresIn: 300,
+          resendAfter: 60,
+        },
+      }
+    );
   };
 
   // XỬ LÝ NỘP BƯỚC 2: ĐẶT LẠI MẬT KHẨU MỚI (KHI ĐÃ CÓ RESET TOKEN)

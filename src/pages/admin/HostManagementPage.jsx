@@ -1,68 +1,30 @@
-import { useMemo, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  MoreHorizontal,
+  CheckCircle2,
+} from 'lucide-react';
 import { Modal } from '../../components/common/Modal';
+import { adminService } from '../../services';
+import { LockHostModal, UnlockHostModal } from '../../components/admin';
 
-const initialHosts = [
-  {
-    id: 'HOST001',
-    name: 'Nguyễn Văn Host 1',
-    phone: '0905123456',
-    email: 'host1@hotelnt.com',
-    hotelCount: 3,
-    createdAt: '15/08/2026',
-    isLocked: false,
-    hotels: [
-      'Sea View Hotel Nha Trang',
-      'Ocean Pearl Homestay',
-      'Sunrise Beach Resort',
-    ],
-  },
-  {
-    id: 'HOST002',
-    name: 'Trần Thị Host 2',
-    phone: '0987654321',
-    email: 'host2@hotelnt.com',
-    hotelCount: 1,
-    createdAt: '20/08/2026',
-    isLocked: true,
-    lockReason: 'Vi phạm chính sách đăng tải thông tin.',
-    hotels: ['Biển Xanh Luxury Hotel'],
-  },
-  {
-    id: 'HOST003',
-    name: 'Lê Hoàng Nam',
-    phone: '0912345678',
-    email: 'nam@hotelnt.com',
-    hotelCount: 2,
-    createdAt: '05/09/2026',
-    isLocked: false,
-    hotels: ['Nha Trang Central Hotel', 'Blue Ocean Homestay'],
-  },
-  {
-    id: 'HOST004',
-    name: 'Phạm Minh Anh',
-    phone: '0934567890',
-    email: 'minhanh@hotelnt.com',
-    hotelCount: 1,
-    createdAt: '12/09/2026',
-    isLocked: false,
-    hotels: ['Golden Sand Resort'],
-  },
-  {
-    id: 'HOST005',
-    name: 'Trần Quốc Bảo',
-    phone: '0978123456',
-    email: 'bao@hotelnt.com',
-    hotelCount: 0,
-    createdAt: '20/09/2026',
-    isLocked: true,
-    lockReason: 'Tài khoản có dấu hiệu đăng tải thông tin không chính xác.',
-    hotels: [],
-  },
-];
+const getHostInitials = (name) => {
+  if (!name) return 'H';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const Field = ({ label, value }) => (
+  <div className="space-y-1">
+    <p className="text-xs font-medium text-[#94A3B8]">{label}</p>
+    <p className="break-words text-sm font-medium text-[#334155]">
+      {value || 'Chưa cập nhật'}
+    </p>
+  </div>
+);
 
 export const HostManagementPage = () => {
-  const [hosts, setHosts] = useState(initialHosts);
-
+  const [hosts, setHosts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -70,39 +32,81 @@ export const HostManagementPage = () => {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
 
-  const [lockReason, setLockReason] = useState('');
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
-  const activeCount = hosts.filter((host) => !host.isLocked).length;
-  const lockedCount = hosts.filter((host) => host.isLocked).length;
+  const [counts, setCounts] = useState({ total: 0, active: 0, locked: 0 });
 
-  const filteredHosts = useMemo(() => {
-    const keyword = searchTerm.trim().toLowerCase();
+  // --- FETCH HOST COUNTS (OVERALL STATS) ---
+  const fetchHostCounts = useCallback(async () => {
+    try {
+      const [allRes, activeRes, lockedRes] = await Promise.allSettled([
+        adminService.getHosts({ limit: 1 }),
+        adminService.getHosts({ trangThai: 'ACTIVE', limit: 1 }),
+        adminService.getHosts({ trangThai: 'LOCKED', limit: 1 }),
+      ]);
+      const total =
+        allRes.status === 'fulfilled'
+          ? (allRes.value?.pagination?.totalItems ?? (Array.isArray(allRes.value) ? allRes.value.length : 0))
+          : 0;
+      const active =
+        activeRes.status === 'fulfilled'
+          ? (activeRes.value?.pagination?.totalItems ?? (Array.isArray(activeRes.value) ? activeRes.value.length : 0))
+          : 0;
+      const locked =
+        lockedRes.status === 'fulfilled'
+          ? (lockedRes.value?.pagination?.totalItems ?? (Array.isArray(lockedRes.value) ? lockedRes.value.length : 0))
+          : 0;
+      setCounts({ total, active, locked });
+    } catch (e) {
+      console.warn('Lỗi khi tải thống kê host:', e);
+    }
+  }, []);
 
-    return hosts.filter((host) => {
-      const matchesSearch =
-        host.name.toLowerCase().includes(keyword) ||
-        host.email.toLowerCase().includes(keyword) ||
-        host.phone.includes(keyword) ||
-        host.id.toLowerCase().includes(keyword);
+  useEffect(() => {
+    fetchHostCounts();
+  }, [fetchHostCounts]);
 
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && !host.isLocked) ||
-        (statusFilter === 'locked' && host.isLocked);
+  // --- FETCH HOSTS FROM API (theo API_DESIGN Row 39) ---
+  const fetchHosts = useCallback(async () => {
+    try {
+      const data = await adminService.getHosts({
+        trangThai: statusFilter,
+        keyword: searchTerm,
+      });
+      const list = Array.isArray(data) ? data : (data?.items || []);
+      setHosts(list);
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách Host từ API:', err);
+    }
+  }, [statusFilter, searchTerm]);
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [hosts, searchTerm, statusFilter]);
+  useEffect(() => {
+    fetchHosts();
+  }, [fetchHosts]);
 
-  const openDetail = (host) => {
-    setSelectedHost(host);
-    setDetailModalOpen(true);
+  const activeCount = counts.active || hosts.filter((host) => host.trangThai === 'ACTIVE' || !host.isLocked).length;
+  const lockedCount = counts.locked || hosts.filter((host) => host.trangThai === 'LOCKED' || host.isLocked).length;
+  const totalCount = counts.total || hosts.length;
+
+  // --- OPEN DETAIL FROM API (theo API_DESIGN Row 40) ---
+  const openDetail = async (host) => {
+    try {
+      const detail = await adminService.getHostDetail(host.id);
+      setSelectedHost(detail);
+      setDetailModalOpen(true);
+    } catch {
+      setSelectedHost(host);
+      setDetailModalOpen(true);
+    }
   };
 
   const openLockModal = (host) => {
     setSelectedHost(host);
-    setLockReason('');
     setLockModalOpen(true);
   };
 
@@ -111,52 +115,55 @@ export const HostManagementPage = () => {
     setUnlockModalOpen(true);
   };
 
-  const handleLock = () => {
-    if (!selectedHost || !lockReason.trim()) return;
+  // --- LOCK HOST VIA API (theo API_DESIGN Row 41) ---
+  const handleLock = async () => {
+    if (!selectedHost) return;
+    const hostName = selectedHost.hoTen || selectedHost.name;
 
-    setHosts((prev) =>
-      prev.map((host) =>
-        host.id === selectedHost.id
-          ? {
-              ...host,
-              isLocked: true,
-              lockReason: lockReason.trim(),
-            }
-          : host
-      )
-    );
-
-    setLockModalOpen(false);
-    setDetailModalOpen(false);
-    setSelectedHost(null);
-    setLockReason('');
-
-    alert('Đã khóa tài khoản Host thành công. Đây là thao tác mô phỏng Frontend.');
+    try {
+      await adminService.updateHostStatus(selectedHost.id, {
+        trangThai: 'LOCKED',
+        lyDoKhoa: 'Khóa tài khoản theo yêu cầu quản trị viên',
+      });
+      setLockModalOpen(false);
+      setSelectedHost(null);
+      showToast(`Đã khóa tài khoản Host "${hostName}" thành công.`);
+      fetchHosts();
+      fetchHostCounts();
+    } catch (err) {
+      showToast('Có lỗi xảy ra khi khóa tài khoản qua API.');
+    }
   };
 
-  const handleUnlock = () => {
+  // --- UNLOCK HOST VIA API (theo API_DESIGN Row 41) ---
+  const handleUnlock = async () => {
     if (!selectedHost) return;
+    const hostName = selectedHost.hoTen || selectedHost.name;
 
-    setHosts((prev) =>
-      prev.map((host) =>
-        host.id === selectedHost.id
-          ? {
-              ...host,
-              isLocked: false,
-              lockReason: '',
-            }
-          : host
-      )
-    );
-
-    setUnlockModalOpen(false);
-    setSelectedHost(null);
-
-    alert('Đã mở khóa tài khoản Host thành công. Đây là thao tác mô phỏng Frontend.');
+    try {
+      await adminService.updateHostStatus(selectedHost.id, {
+        trangThai: 'ACTIVE',
+      });
+      setUnlockModalOpen(false);
+      setSelectedHost(null);
+      showToast(`Đã mở khóa tài khoản Host "${hostName}" thành công.`);
+      fetchHosts();
+      fetchHostCounts();
+    } catch (err) {
+      showToast('Có lỗi xảy ra khi mở khóa tài khoản qua API.');
+    }
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 p-6 sm:p-8 lg:p-10 pb-8 relative">
+      {/* TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-black text-white text-sm shadow-xl animate-fade-in border border-neutral-700">
+          <CheckCircle2 size={18} className="text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* HEADER */}
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#B45309]">
@@ -180,7 +187,7 @@ export const HostManagementPage = () => {
           </p>
 
           <p className="mt-3 text-3xl font-bold text-[#171717]">
-            {hosts.length.toString().padStart(2, '0')}
+            {totalCount.toString().padStart(2, '0')}
           </p>
 
           <p className="mt-2 text-xs text-[#94A3B8]">
@@ -190,7 +197,7 @@ export const HostManagementPage = () => {
 
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-[#64748B]">
-            Tài khoản hoạt động
+            Đang hoạt động
           </p>
 
           <p className="mt-3 text-3xl font-bold text-emerald-700">
@@ -198,13 +205,13 @@ export const HostManagementPage = () => {
           </p>
 
           <p className="mt-2 text-xs text-[#94A3B8]">
-            Đối tác có thể sử dụng hệ thống
+            Tài khoản có quyền đăng nhập bình thường
           </p>
         </div>
 
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-[#64748B]">
-            Tài khoản bị khóa
+            Đang bị khóa
           </p>
 
           <p className="mt-3 text-3xl font-bold text-red-600">
@@ -212,49 +219,126 @@ export const HostManagementPage = () => {
           </p>
 
           <p className="mt-2 text-xs text-[#94A3B8]">
-            Tài khoản đang bị hạn chế
+            Tài khoản tạm ngưng quyền truy cập
           </p>
         </div>
       </div>
 
-      {/* HOST TABLE */}
+      {/* SEARCH AND FILTER */}
       <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-        {/* FILTER */}
-        <div className="space-y-4 border-b border-[#E5E7EB] p-5">
+        <div className="flex flex-col gap-4 border-b border-[#E5E7EB] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h2 className="font-bold text-[#1E293B]">
-              Danh sách đối tác Host
+              Danh sách tài khoản Host
             </h2>
 
             <p className="mt-1 text-xs text-[#94A3B8]">
-              Hiển thị {filteredHosts.length} / {hosts.length} tài khoản
+              Tìm thấy {hosts.length} tài khoản phù hợp
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 lg:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm theo tên, mã Host, số điện thoại hoặc email..."
-              className="min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#B45309]"
+              placeholder="Tìm theo tên, email, SĐT, mã Host..."
+              className="w-full rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-[#B45309] sm:w-72"
             />
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-[#CBD5E1] bg-white px-4 py-3 text-sm text-[#475569] outline-none focus:border-[#B45309] lg:w-52"
+              className="rounded-xl border border-[#CBD5E1] bg-white px-3 py-2.5 text-sm font-medium text-[#334155] outline-none transition focus:border-[#B45309]"
             >
               <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="locked">Đã khóa</option>
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="LOCKED">Đã khóa</option>
             </select>
           </div>
         </div>
 
-        {/* TABLE */}
-        {filteredHosts.length > 0 ? (
-          <div className="overflow-x-auto">
+        {/* TABLE (Desktop) */}
+        {hosts.length > 0 ? (
+          <>
+            {/* MOBILE CARDS VIEW (md:hidden) */}
+            <div className="md:hidden divide-y divide-[#E2E8F0]">
+              {hosts.map((host) => {
+                const isLocked = host.trangThai === 'LOCKED' || host.isLocked;
+                const hostName = host.hoTen || host.name;
+                const hostPhone = host.soDienThoai || host.phone;
+                const hostCount = host.soLuongCSLT ?? host.hotelCount ?? 0;
+                const initials = getHostInitials(hostName);
+
+                return (
+                  <div key={host.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-[#E8DDD9] text-[#78350F] font-bold text-xs flex items-center justify-center shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-black text-sm truncate">{hostName}</p>
+                          <p className="text-xs text-[#94A3B8]">HOST-{String(host.id).padStart(3, '0')}</p>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold shrink-0 ${
+                          isLocked ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
+                      >
+                        {isLocked ? 'Đã khóa' : 'Hoạt động'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-[#64748B] bg-[#FAFAF9] p-2.5 rounded-xl border border-[#F1F5F9]">
+                      <div>
+                        <span className="text-[#94A3B8] block text-[10px]">SĐT</span>
+                        <span className="font-medium text-black">{hostPhone || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#94A3B8] block text-[10px]">Cơ sở</span>
+                        <span className="font-medium text-black">{hostCount} cơ sở</span>
+                      </div>
+                      <div className="col-span-2 truncate">
+                        <span className="text-[#94A3B8] block text-[10px]">Email</span>
+                        <span className="font-medium text-black truncate">{host.email}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {isLocked ? (
+                        <button
+                          type="button"
+                          onClick={() => openUnlockModal(host)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-700 text-xs font-semibold text-white hover:bg-emerald-800 transition cursor-pointer"
+                        >
+                          Mở khóa
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openLockModal(host)}
+                          className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                        >
+                          Khóa
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openDetail(host)}
+                        className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] text-xs font-semibold text-black hover:bg-[#F8F4E8] transition cursor-pointer"
+                      >
+                        Chi tiết
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DESKTOP TABLE VIEW */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-sm">
               <thead className="bg-[#FAFAF9] text-xs font-semibold uppercase text-[#64748B]">
                 <tr>
@@ -285,79 +369,91 @@ export const HostManagementPage = () => {
               </thead>
 
               <tbody className="divide-y divide-[#E5E7EB]">
-                {filteredHosts.map((host) => (
-                  <tr
-                    key={host.id}
-                    className="transition hover:bg-[#FFFCF6]"
-                  >
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-[#1E293B]">
-                        {host.name}
-                      </p>
+                {hosts.map((host) => {
+                  const isLocked = host.trangThai === 'LOCKED' || host.isLocked;
+                  const hostName = host.hoTen || host.name;
+                  const hostPhone = host.soDienThoai || host.phone;
+                  const hostCount = host.soLuongCSLT ?? host.hotelCount ?? 0;
 
-                      <p className="mt-1 text-xs text-[#94A3B8]">
-                        {host.id}
-                      </p>
-                    </td>
+                  return (
+                    <tr
+                      key={host.id}
+                      className="transition hover:bg-[#FFFCF6]"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-[#1E293B]">
+                          {hostName}
+                        </p>
 
-                    <td className="px-5 py-4">
-                      <p className="text-[#475569]">{host.phone}</p>
-                      <p className="mt-1 text-xs text-[#94A3B8]">
-                        {host.email}
-                      </p>
-                    </td>
+                        <p className="mt-1 text-xs text-[#94A3B8]">
+                          HOST-{String(host.id).padStart(3, '0')}
+                        </p>
+                      </td>
 
-                    <td className="px-5 py-4 font-semibold text-[#334155]">
-                      {host.hotelCount.toString().padStart(2, '0')} cơ sở
-                    </td>
+                      <td className="px-5 py-4">
+                        <p className="text-[#475569]">{hostPhone}</p>
+                        <p className="mt-1 text-xs text-[#94A3B8]">
+                          {host.email}
+                        </p>
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 text-[#64748B]">
-                      {host.createdAt}
-                    </td>
+                      <td className="px-5 py-4 font-semibold text-[#334155]">
+                        {String(hostCount).padStart(2, '0')} cơ sở
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${
-                          host.isLocked
-                            ? 'bg-red-50 text-red-700'
-                            : 'bg-emerald-50 text-emerald-700'
-                        }`}
-                      >
-                        {host.isLocked ? 'Đã khóa' : 'Đang hoạt động'}
-                      </span>
-                    </td>
+                      <td className="whitespace-nowrap px-5 py-4 text-[#64748B]">
+                        {host.ngayTao
+                          ? new Date(host.ngayTao).toLocaleDateString('vi-VN')
+                          : host.createdAt || '—'}
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openDetail(host)}
-                          className="whitespace-nowrap rounded-lg border border-[#CBD5E1] px-3 py-2 text-xs font-semibold text-[#475569] transition hover:bg-[#F8F4E8]"
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${
+                            isLocked
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
                         >
-                          Chi tiết
-                        </button>
+                          {isLocked ? 'Đã khóa' : 'Đang hoạt động'}
+                        </span>
+                      </td>
 
-                        {host.isLocked ? (
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          {isLocked ? (
+                            <button
+                              onClick={() => openUnlockModal(host)}
+                              className="whitespace-nowrap rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800 cursor-pointer"
+                            >
+                              Mở khóa
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openLockModal(host)}
+                              className="whitespace-nowrap rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 cursor-pointer"
+                            >
+                              Khóa tài khoản
+                            </button>
+                          )}
+
                           <button
-                            onClick={() => openUnlockModal(host)}
-                            className="whitespace-nowrap rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
+                            onClick={() => openDetail(host)}
+                            title="Xem chi tiết"
+                            aria-label="Xem chi tiết"
+                            className="p-2 rounded-lg border border-[#CBD5E1] text-[#475569] hover:text-black hover:border-black hover:bg-[#F8F4E8] transition cursor-pointer flex items-center justify-center shrink-0"
                           >
-                            Mở khóa
+                            <MoreHorizontal size={18} />
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => openLockModal(host)}
-                            className="whitespace-nowrap rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-                          >
-                            Khóa tài khoản
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="px-5 py-16 text-center">
             <p className="font-semibold text-[#334155]">
@@ -378,73 +474,61 @@ export const HostManagementPage = () => {
         title="Thông tin chi tiết Host"
       >
         {selectedHost && (
-          <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-1">
-            <div className="border-b border-[#E5E7EB] pb-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#1E293B]">
+                  {selectedHost.hoTen || selectedHost.name}
+                </h3>
+
+                <p className="mt-1 text-xs text-[#94A3B8]">
+                  Mã tài khoản: HOST-{String(selectedHost.id).padStart(3, '0')}
+                </p>
+              </div>
+
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  selectedHost.isLocked
+                  selectedHost.trangThai === 'LOCKED' || selectedHost.isLocked
                     ? 'bg-red-50 text-red-700'
                     : 'bg-emerald-50 text-emerald-700'
                 }`}
               >
-                {selectedHost.isLocked ? 'Đã khóa' : 'Đang hoạt động'}
+                {selectedHost.trangThai === 'LOCKED' || selectedHost.isLocked
+                  ? 'Đã khóa'
+                  : 'Đang hoạt động'}
               </span>
-
-              <h3 className="mt-3 text-xl font-bold text-[#1E293B]">
-                {selectedHost.name}
-              </h3>
-
-              <p className="mt-1 text-sm text-[#94A3B8]">
-                Mã tài khoản: {selectedHost.id}
-              </p>
             </div>
 
             <div>
               <h4 className="mb-4 text-sm font-bold text-[#1E293B]">
-                Thông tin cá nhân
+                Thông tin liên hệ &amp; Định danh
               </h4>
 
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs text-[#94A3B8]">Họ và tên</p>
-                  <p className="mt-1 text-sm font-medium text-[#334155]">
-                    {selectedHost.name}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-[#94A3B8]">Số điện thoại</p>
-                  <p className="mt-1 text-sm font-medium text-[#334155]">
-                    {selectedHost.phone}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-[#94A3B8]">Email</p>
-                  <p className="mt-1 break-all text-sm font-medium text-[#334155]">
-                    {selectedHost.email}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-[#94A3B8]">Ngày tham gia</p>
-                  <p className="mt-1 text-sm font-medium text-[#334155]">
-                    {selectedHost.createdAt}
-                  </p>
-                </div>
+                <Field label="Số điện thoại" value={selectedHost.soDienThoai || selectedHost.phone} />
+                <Field label="Email" value={selectedHost.email} />
+                <Field label="CCCD (bảo mật)" value={selectedHost.cccd || '056099******'} />
+                <Field
+                  label="Ngày tham gia"
+                  value={
+                    selectedHost.ngayTao
+                      ? new Date(selectedHost.ngayTao).toLocaleDateString('vi-VN')
+                      : selectedHost.createdAt || 'Chưa cập nhật'
+                  }
+                />
+                <Field
+                  label="Số lượng cơ sở"
+                  value={`${selectedHost.soLuongCSLT ?? selectedHost.hotelCount ?? 0} cơ sở`}
+                />
               </div>
             </div>
 
             <div className="border-t border-[#E5E7EB] pt-5">
-              <h4 className="mb-3 text-sm font-bold text-[#1E293B]">
-                Cơ sở lưu trú thuộc quyền quản lý
+              <h4 className="mb-4 text-sm font-bold text-[#1E293B]">
+                Danh sách cơ sở lưu trú của Host
               </h4>
 
-              <p className="mb-3 text-xs text-[#94A3B8]">
-                Tổng số: {selectedHost.hotelCount} cơ sở
-              </p>
-
-              {selectedHost.hotels.length > 0 ? (
+              {selectedHost.hotels && selectedHost.hotels.length > 0 ? (
                 <div className="space-y-2">
                   {selectedHost.hotels.map((hotel, index) => (
                     <div
@@ -457,6 +541,21 @@ export const HostManagementPage = () => {
                     </div>
                   ))}
                 </div>
+              ) : selectedHost.thongKeCSLT ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="rounded-xl bg-[#FAFAF9] border border-[#E5E7EB] p-3 text-center">
+                    <p className="text-xs text-[#64748B]">Đang hiển thị</p>
+                    <p className="text-lg font-bold text-emerald-600 mt-1">{selectedHost.thongKeCSLT.APPROVED || 0}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#FAFAF9] border border-[#E5E7EB] p-3 text-center">
+                    <p className="text-xs text-[#64748B]">Chờ duyệt</p>
+                    <p className="text-lg font-bold text-amber-600 mt-1">{selectedHost.thongKeCSLT.PENDING || 0}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#FAFAF9] border border-[#E5E7EB] p-3 text-center">
+                    <p className="text-xs text-[#64748B]">Bị từ chối</p>
+                    <p className="text-lg font-bold text-rose-600 mt-1">{selectedHost.thongKeCSLT.REJECTED || 0}</p>
+                  </div>
+                </div>
               ) : (
                 <p className="rounded-xl bg-[#FAFAF9] p-4 text-sm text-[#94A3B8]">
                   Host hiện chưa đăng ký cơ sở lưu trú nào.
@@ -464,14 +563,14 @@ export const HostManagementPage = () => {
               )}
             </div>
 
-            {selectedHost.isLocked && selectedHost.lockReason && (
+            {(selectedHost.lyDoKhoa || selectedHost.lockReason) && (
               <div className="rounded-xl border border-red-100 bg-red-50 p-4">
                 <p className="text-sm font-semibold text-red-700">
                   Lý do khóa tài khoản
                 </p>
 
                 <p className="mt-2 text-sm leading-relaxed text-red-600">
-                  {selectedHost.lockReason}
+                  {selectedHost.lyDoKhoa || selectedHost.lockReason}
                 </p>
               </div>
             )}
@@ -479,103 +578,23 @@ export const HostManagementPage = () => {
         )}
       </Modal>
 
-      {/* LOCK MODAL */}
-      <Modal
+      {/* LOCK MODAL - MATCHING FIGMA POPUP */}
+      <LockHostModal
         isOpen={lockModalOpen}
+        host={selectedHost}
+        initials={selectedHost ? getHostInitials(selectedHost.hoTen || selectedHost.name) : 'H'}
         onClose={() => setLockModalOpen(false)}
-        title="Khóa tài khoản Host"
-      >
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-[#64748B]">
-            Bạn đang thực hiện khóa tài khoản của
-            <span className="mx-1 font-bold text-[#1E293B]">
-              {selectedHost?.name}
-            </span>.
-          </p>
+        onConfirm={handleLock}
+      />
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#334155]">
-              Lý do khóa tài khoản
-              <span className="ml-1 text-red-600">*</span>
-            </label>
-
-            <textarea
-              rows={4}
-              value={lockReason}
-              onChange={(e) => setLockReason(e.target.value)}
-              placeholder="Nhập lý do khóa tài khoản..."
-              className="w-full resize-none rounded-xl border border-[#CBD5E1] bg-[#FAFAF9] px-4 py-3 text-sm outline-none focus:border-[#B45309]"
-            />
-
-            {!lockReason.trim() && (
-              <p className="text-xs text-[#94A3B8]">
-                Vui lòng nhập lý do trước khi xác nhận.
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setLockModalOpen(false)}
-              className="rounded-lg border border-[#CBD5E1] px-4 py-2.5 text-sm font-semibold text-[#475569]"
-            >
-              Hủy
-            </button>
-
-            <button
-              onClick={handleLock}
-              disabled={!lockReason.trim()}
-              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Xác nhận khóa
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* UNLOCK MODAL */}
-      <Modal
+      {/* UNLOCK MODAL - MATCHING FIGMA POPUP */}
+      <UnlockHostModal
         isOpen={unlockModalOpen}
+        host={selectedHost}
+        initials={selectedHost ? getHostInitials(selectedHost.hoTen || selectedHost.name) : 'H'}
         onClose={() => setUnlockModalOpen(false)}
-        title="Mở khóa tài khoản Host"
-      >
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-[#64748B]">
-            Bạn có chắc chắn muốn mở khóa tài khoản
-            <span className="mx-1 font-bold text-[#1E293B]">
-              {selectedHost?.name}
-            </span>?
-          </p>
-
-          {selectedHost?.lockReason && (
-            <div className="rounded-xl bg-[#FAFAF9] p-4">
-              <p className="text-xs font-semibold text-[#64748B]">
-                Lý do khóa trước đó
-              </p>
-
-              <p className="mt-2 text-sm text-[#475569]">
-                {selectedHost.lockReason}
-              </p>
-            </div>
-          )}
-
-          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setUnlockModalOpen(false)}
-              className="rounded-lg border border-[#CBD5E1] px-4 py-2.5 text-sm font-semibold text-[#475569]"
-            >
-              Hủy
-            </button>
-
-            <button
-              onClick={handleUnlock}
-              className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800"
-            >
-              Xác nhận mở khóa
-            </button>
-          </div>
-        </div>
-      </Modal>
+        onConfirm={handleUnlock}
+      />
     </div>
   );
 };
