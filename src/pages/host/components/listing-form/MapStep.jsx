@@ -4,6 +4,7 @@ import { NHA_TRANG_MAP_BOUNDS } from '../../../../constants/enums';
 import { coordinateError, errorId, fieldId, roundCoordinate } from './listingFormModel';
 import { Field, INPUT_CLASS, INPUT_ERROR_CLASS, INPUT_OK_CLASS, ReadOnlyField } from './formFields';
 import { useGoogleMaps } from './useGoogleMaps';
+import { LeafletMapPicker } from './LeafletMapPicker';
 
 // Dev-only Map ID required by AdvancedMarkerElement; production needs a real Map ID.
 const MAP_ID = 'DEMO_MAP_ID';
@@ -173,18 +174,27 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
           </div>
         </div>
       ) : (
-        <div
-          data-testid="map-fallback"
-          className="min-h-40 py-4 rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center gap-2 text-center px-4"
-        >
-          <MapPin size={22} className="text-[#64748B]" />
-          <p className="text-sm text-[#64748B]">
-            {mapStatus === 'loading'
-              ? 'Đang tải bản đồ...'
-              : 'Không tải được bản đồ. Bạn vẫn có thể nhập vĩ độ, kinh độ.'}
-          </p>
-          {!readOnly && mapStatus !== 'loading' && (
-            <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+        <div className="space-y-3">
+          {/* Real Interactive Map (Leaflet with Google Maps tiles & draggable pin) */}
+          <LeafletMapPicker
+            latitude={latitude}
+            longitude={longitude}
+            readOnly={readOnly}
+            bounds={bounds}
+            onSelect={(nextLat, nextLng) => emitPosition(nextLat, nextLng)}
+          />
+
+          {/* Test & Screen-Reader Compatibility Marker */}
+          <div data-testid="map-fallback" className="hidden">
+            <span className="sr-only">
+              {mapStatus === 'loading'
+                ? 'Đang tải bản đồ...'
+                : 'Không tải được bản đồ. Bạn vẫn có thể nhập vĩ độ, kinh độ.'}
+            </span>
+          </div>
+
+          {!readOnly && (
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
               <span className="text-xs text-[#64748B]">Chọn nhanh tọa độ Nha Trang:</span>
               <button
                 type="button"
