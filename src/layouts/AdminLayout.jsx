@@ -108,15 +108,15 @@ const MobileAdminTabBar = () => {
               <Link
                 to={tab.to}
                 aria-current="page"
-                className="bg-black text-white px-4.5 py-2.5 rounded-2xl flex items-center justify-center gap-2 text-[13px] font-bold shadow-xs transition"
+                className="bg-black text-white px-4 py-1.5 rounded-2xl flex flex-col items-center justify-center gap-1 text-[11px] font-bold shadow-xs transition min-w-[72px]"
               >
-                <Icon size={18} />
+                <Icon size={20} />
                 <span>{tab.label}</span>
               </Link>
             ) : (
               <Link
                 to={tab.to}
-                className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium text-[#64748B] hover:text-black py-1 transition"
+                className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium text-[#64748B] hover:text-black py-1.5 transition"
               >
                 <Icon size={20} />
                 <span>{tab.label}</span>
