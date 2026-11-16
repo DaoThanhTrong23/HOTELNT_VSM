@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Play, X } from 'lucide-react';
 import { MEDIA_LIMITS } from '../../../../constants/enums';
+import { resolveHotelImageUrl } from '../../../../utils/formatters';
 import { deleteListingMedia, isCanceled, uploadListingMedia } from '../../api/hostApi';
 
 const MB = 1024 * 1024;
@@ -309,7 +310,7 @@ export const MediaStep = ({
                 }}
                 className={`group relative aspect-4/3 rounded-lg overflow-hidden bg-[#CBD5E1] ${readOnly ? '' : 'cursor-grab'}`}
               >
-                <img src={item.url} alt={`Ảnh ${index + 1}`} loading="lazy" className="w-full h-full object-cover" />
+                <img src={resolveHotelImageUrl(item.url)} alt={`Ảnh ${index + 1}`} loading="lazy" className="w-full h-full object-cover" />
                 {index === 0 && (
                   <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white text-[11px] font-medium text-black">
                     Ảnh bìa
@@ -398,7 +399,7 @@ export const MediaStep = ({
                 <span className="w-9 h-9 rounded-lg border border-[#CBD5E1] flex items-center justify-center shrink-0">
                   <Play size={14} />
                 </span>
-                <a href={item.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-black truncate hover:underline">
+                <a href={resolveHotelImageUrl(item.url)} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-black truncate hover:underline">
                   {`${fileNameFromUrl(item.url)} · ${formatMegabytes(item.kichThuoc)}`}
                 </a>
                 {!readOnly && (

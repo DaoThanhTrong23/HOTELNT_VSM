@@ -171,6 +171,8 @@ const Thumbnail = ({ item, sizeClass }) => {
       loading="lazy"
       onError={(e) => {
         if (FALLBACK_HOTEL_IMAGE && e.currentTarget.src !== FALLBACK_HOTEL_IMAGE) {
+          // Marked so a stock photo standing in for a broken listing image is not mistaken for the real one.
+          e.currentTarget.dataset.fallback = 'true';
           e.currentTarget.src = FALLBACK_HOTEL_IMAGE;
         }
       }}

@@ -67,8 +67,8 @@ export const resolveHotelImageUrl = (url) => {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
     return url;
   }
-  // Gắn domain Backend (Azure) cho các đường dẫn relative trả về từ BE
-  const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/api\/?$/, '');
+  // Gắn địa chỉ Backend cho các đường dẫn relative trả về từ BE. Giữ cả /api vì BE phục vụ file ở <base>/api/uploads/...
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
   const cleanPath = url.startsWith('/') ? url : '/' + url;
   return apiBase + cleanPath;
 };

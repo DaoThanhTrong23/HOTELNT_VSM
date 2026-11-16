@@ -134,6 +134,19 @@ describe('HostDashboardPage: listing data', () => {
     expect(within(row).getByText('—')).toBeInTheDocument();
   });
 
+  it('DASH-03b: loads a relative /uploads image from the API base, /api included', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.hotelnt.test/api');
+    mockListings({ list: () => page([listing({ maCSLT: 6, tenCSLT: 'Phố Biển Homestay', duongDanAnh: '/uploads/abc.jpg' })]) });
+    renderPage();
+    await waitForRows();
+
+    expect(within(desktopRow('Phố Biển Homestay')).getByRole('img', { name: 'Phố Biển Homestay' })).toHaveAttribute(
+      'src',
+      'https://api.hotelnt.test/api/uploads/abc.jpg',
+    );
+    vi.unstubAllEnvs();
+  });
+
   it('DASH-04: shows tab counts from totalItems and "—" when a count fails', async () => {
     mockListings({ counts: { ...COUNTS, HIDDEN: new ApiError({ code: 'INTERNAL_ERROR' }) } });
     renderPage();
