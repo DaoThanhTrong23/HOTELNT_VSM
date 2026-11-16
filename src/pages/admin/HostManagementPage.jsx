@@ -258,9 +258,87 @@ export const HostManagementPage = () => {
           </div>
         </div>
 
-        {/* TABLE */}
+        {/* TABLE (Desktop) */}
         {hosts.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+            {/* MOBILE CARDS VIEW (md:hidden) */}
+            <div className="md:hidden divide-y divide-[#E2E8F0]">
+              {hosts.map((host) => {
+                const isLocked = host.trangThai === 'LOCKED' || host.isLocked;
+                const hostName = host.hoTen || host.name;
+                const hostPhone = host.soDienThoai || host.phone;
+                const hostCount = host.soLuongCSLT ?? host.hotelCount ?? 0;
+                const initials = getHostInitials(hostName);
+
+                return (
+                  <div key={host.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-[#E8DDD9] text-[#78350F] font-bold text-xs flex items-center justify-center shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-black text-sm truncate">{hostName}</p>
+                          <p className="text-xs text-[#94A3B8]">HOST-{String(host.id).padStart(3, '0')}</p>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold shrink-0 ${
+                          isLocked ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
+                      >
+                        {isLocked ? 'Đã khóa' : 'Hoạt động'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-[#64748B] bg-[#FAFAF9] p-2.5 rounded-xl border border-[#F1F5F9]">
+                      <div>
+                        <span className="text-[#94A3B8] block text-[10px]">SĐT</span>
+                        <span className="font-medium text-black">{hostPhone || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#94A3B8] block text-[10px]">Cơ sở</span>
+                        <span className="font-medium text-black">{hostCount} cơ sở</span>
+                      </div>
+                      <div className="col-span-2 truncate">
+                        <span className="text-[#94A3B8] block text-[10px]">Email</span>
+                        <span className="font-medium text-black truncate">{host.email}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {isLocked ? (
+                        <button
+                          type="button"
+                          onClick={() => openUnlockModal(host)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-700 text-xs font-semibold text-white hover:bg-emerald-800 transition cursor-pointer"
+                        >
+                          Mở khóa
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openLockModal(host)}
+                          className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                        >
+                          Khóa
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openDetail(host)}
+                        className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] text-xs font-semibold text-black hover:bg-[#F8F4E8] transition cursor-pointer"
+                      >
+                        Chi tiết
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DESKTOP TABLE VIEW */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-sm">
               <thead className="bg-[#FAFAF9] text-xs font-semibold uppercase text-[#64748B]">
                 <tr>
@@ -375,6 +453,7 @@ export const HostManagementPage = () => {
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="px-5 py-16 text-center">
             <p className="font-semibold text-[#334155]">

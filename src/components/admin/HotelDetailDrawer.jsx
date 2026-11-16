@@ -91,7 +91,7 @@ export const HotelDetailDrawer = ({
   };
 
   return (
-    <aside className="w-full lg:w-[440px] xl:w-[480px] bg-white border-l border-[#CBD5E1] flex flex-col h-full shrink-0 shadow-lg lg:shadow-none overflow-hidden z-30 transition-all duration-300">
+    <aside className="fixed inset-0 z-50 lg:static lg:z-30 w-full lg:w-[440px] xl:w-[480px] bg-white border-l border-[#CBD5E1] flex flex-col h-full shrink-0 shadow-lg lg:shadow-none overflow-hidden transition-all duration-300">
       {/* PANEL HEADER: QUAY LẠI DANH SÁCH */}
       <div className="px-5 py-3.5 border-b border-[#E2E8F0] flex items-center justify-between bg-white shrink-0">
         <button

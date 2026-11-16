@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { adminService } from '../../services';
 import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../utils/formatters';
@@ -52,15 +53,17 @@ const TypeBadge = ({ type }) => {
 };
 
 export const HotelModerationPage = () => {
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'live'
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'live' | 'rejected'
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [timeFilter, setTimeFilter] = useState('NEWEST');
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   // Listings state from API
   const [listings, setListings] = useState([]);
   const [pendingTotal, setPendingTotal] = useState(0);
   const [liveTotal, setLiveTotal] = useState(0);
+  const [rejectedTotal, setRejectedTotal] = useState(0);
 
   // Selected hotel for detail drawer
   const [selectedHotel, setSelectedHotel] = useState(null);
@@ -96,12 +99,13 @@ export const HotelModerationPage = () => {
     }
   }, []);
 
-  // --- FETCH COUNTS FOR BOTH TABS ---
+  // --- FETCH COUNTS FOR ALL TABS ---
   const fetchCounts = useCallback(async () => {
     try {
-      const [pendingRes, approvedRes] = await Promise.allSettled([
+      const [pendingRes, approvedRes, rejectedRes] = await Promise.allSettled([
         adminService.getListings({ trangThai: 'PENDING', limit: 1 }),
         adminService.getListings({ trangThai: 'APPROVED', limit: 1 }),
+        adminService.getListings({ trangThai: 'REJECTED', limit: 1 }),
       ]);
       if (pendingRes.status === 'fulfilled' && pendingRes.value) {
         const val = pendingRes.value;
@@ -110,6 +114,10 @@ export const HotelModerationPage = () => {
       if (approvedRes.status === 'fulfilled' && approvedRes.value) {
         const val = approvedRes.value;
         setLiveTotal(val.pagination?.totalItems ?? (Array.isArray(val) ? val.length : (val.items?.length || 0)));
+      }
+      if (rejectedRes.status === 'fulfilled' && rejectedRes.value) {
+        const val = rejectedRes.value;
+        setRejectedTotal(val.pagination?.totalItems ?? (Array.isArray(val) ? val.length : (val.items?.length || 0)));
       }
     } catch (e) {
       console.warn('Lỗi khi tải số lượng kiểm duyệt:', e);
@@ -123,7 +131,12 @@ export const HotelModerationPage = () => {
   // --- FETCH LISTINGS FROM API (theo API_DESIGN Row 42) ---
   const fetchListings = useCallback(async () => {
     try {
-      const trangThai = activeTab === 'pending' ? 'PENDING' : 'APPROVED';
+      const trangThai =
+        activeTab === 'pending'
+          ? 'PENDING'
+          : activeTab === 'live'
+          ? 'APPROVED'
+          : 'REJECTED';
       const data = await adminService.getListings({
         trangThai,
         keyword: search,
@@ -134,14 +147,17 @@ export const HotelModerationPage = () => {
       const items = data.items || data || [];
       setListings(items);
 
+      const total = data.pagination?.totalItems || items.length;
       if (activeTab === 'pending') {
-        setPendingTotal(data.pagination?.totalItems || items.length);
+        setPendingTotal(total);
+      } else if (activeTab === 'live') {
+        setLiveTotal(total);
       } else {
-        setLiveTotal(data.pagination?.totalItems || items.length);
+        setRejectedTotal(total);
       }
 
-      // Automatically select first item if none is selected
-      if (items.length > 0 && !selectedHotel) {
+      // Automatically select first item if none is selected (desktop only)
+      if (items.length > 0 && !selectedHotel && typeof window !== 'undefined' && window.innerWidth >= 1024) {
         loadDetail(items[0].maCSLT);
       }
     } catch (err) {
@@ -248,24 +264,93 @@ export const HotelModerationPage = () => {
       )}
 
       {/* LEFT COLUMN: MODERATION TABLE & FILTERS */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-7 lg:p-8 space-y-5">
-        {/* BREADCRUMB */}
-        <div className="flex items-center gap-2 text-xs text-[#64748B]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-7 lg:p-8 space-y-4 sm:space-y-5">
+        {/* BREADCRUMB (Desktop only) */}
+        <div className="hidden sm:flex items-center gap-2 text-xs text-[#64748B]">
           <span className="hover:text-black cursor-pointer">Admin</span>
           <span>&gt;</span>
           <span className="text-black">Quản lý và kiểm duyệt</span>
         </div>
 
-        {/* PAGE TITLE */}
+        {/* PAGE TITLE & SUBTITLE */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight">
+          {/* Mobile Title matching Figma Frame 16 */}
+          <div className="sm:hidden">
+            <h1 className="text-xl font-black text-black tracking-tight">
+              {activeTab === 'rejected'
+                ? 'Từ chối cơ sở'
+                : activeTab === 'pending'
+                ? 'Chờ duyệt'
+                : 'Cơ sở đã duyệt'}
+            </h1>
+            <p className="text-xs text-[#64748B] mt-0.5">
+              {activeTab === 'rejected'
+                ? 'Các hồ sơ chưa đáp ứng điều kiện.'
+                : activeTab === 'pending'
+                ? 'Xem xét và phê duyệt các cơ sở lưu trú mới.'
+                : 'Các cơ sở lưu trú đang hiển thị công khai.'}
+            </p>
+          </div>
+
+          {/* Desktop Title */}
+          <h1 className="hidden sm:block text-2xl sm:text-3xl font-bold text-black tracking-tight">
             Quản lý và kiểm duyệt
           </h1>
         </div>
 
-        {/* TABS */}
-        <div className="flex items-center gap-6 border-b border-[#E2E8F0] pt-1">
+        {/* MOBILE STATUS SWITCHER PILLS (Figma Frame 16) */}
+        <div className="flex sm:hidden items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           <button
+            type="button"
+            onClick={() => {
+              setActiveTab('pending');
+              setCurrentPage(1);
+              setSelectedHotel(null);
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'pending'
+                ? 'bg-black text-white shadow-xs'
+                : 'bg-white text-[#64748B] border border-[#CBD5E1] hover:text-black'
+            }`}
+          >
+            Chờ duyệt ({pendingTotal})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('live');
+              setCurrentPage(1);
+              setSelectedHotel(null);
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'live'
+                ? 'bg-black text-white shadow-xs'
+                : 'bg-white text-[#64748B] border border-[#CBD5E1] hover:text-black'
+            }`}
+          >
+            Đã duyệt ({liveTotal})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('rejected');
+              setCurrentPage(1);
+              setSelectedHotel(null);
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'rejected'
+                ? 'bg-black text-white shadow-xs'
+                : 'bg-white text-[#64748B] border border-[#CBD5E1] hover:text-black'
+            }`}
+          >
+            Từ chối ({rejectedTotal})
+          </button>
+        </div>
+
+        {/* DESKTOP TABS */}
+        <div className="hidden sm:flex items-center gap-6 border-b border-[#E2E8F0] pt-1">
+          <button
+            type="button"
             onClick={() => {
               setActiveTab('pending');
               setCurrentPage(1);
@@ -283,6 +368,7 @@ export const HotelModerationPage = () => {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveTab('live');
               setCurrentPage(1);
@@ -298,69 +384,322 @@ export const HotelModerationPage = () => {
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('rejected');
+              setCurrentPage(1);
+            }}
+            className={`pb-3 text-sm font-semibold transition relative cursor-pointer ${
+              activeTab === 'rejected'
+                ? 'text-black'
+                : 'text-[#64748B] hover:text-black'
+            }`}
+          >
+            Đã từ chối ({rejectedTotal})
+            {activeTab === 'rejected' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
+            )}
+          </button>
         </div>
 
-        {/* TOOLBAR: SEARCH & DROPDOWNS */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* Search box */}
-          <div className="relative flex-1">
-            <Search
-              size={17}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-            />
+        {/* TOOLBAR: SEARCH & DROPDOWNS (Matches Figma 16.5) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {/* Search box with filter button on mobile */}
+          <div className="flex items-center gap-2 flex-1">
+            <div className="relative flex-1">
+              <Search
+                size={17}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Tìm kiếm cơ sở..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-black placeholder:text-[#94A3B8] focus:outline-none focus:border-black transition shadow-2xs"
+              />
+            </div>
+
+            {/* Mobile Filter Toggle Button */}
+            <button
+              type="button"
+              aria-label="Bộ lọc"
+              onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+              className={`sm:hidden p-2.5 rounded-xl border transition cursor-pointer shrink-0 shadow-2xs ${
+                mobileFilterOpen || typeFilter !== 'ALL' || timeFilter !== 'NEWEST'
+                  ? 'bg-black text-white border-black'
+                  : 'bg-white text-[#64748B] border-[#CBD5E1] hover:text-black'
+              }`}
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+          </div>
+
+          {/* Desktop Filters */}
+          <div className="hidden sm:flex items-center gap-3">
+            {/* Filter: Loại hình */}
+            <div className="relative">
+              <select
+                value={typeFilter}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="appearance-none px-4 py-2.5 pr-9 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm font-medium text-black focus:outline-none focus:border-black transition cursor-pointer shadow-2xs"
+              >
+                <option value="ALL">Tất cả loại hình</option>
+                <option value="Hotel">Khách sạn (Hotel)</option>
+                <option value="Homestay">Homestay</option>
+                <option value="Resort">Resort</option>
+                <option value="Căn hộ">Căn hộ</option>
+              </select>
+              <ChevronDown
+                size={15}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none"
+              />
+            </div>
+
+            {/* Filter: Thời gian gửi */}
+            <div className="relative">
+              <select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="appearance-none px-4 py-2.5 pr-9 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm font-medium text-black focus:outline-none focus:border-black transition cursor-pointer shadow-2xs"
+              >
+                <option value="NEWEST">Thời gian gửi ▾</option>
+                <option value="OLDEST">Cũ nhất trước</option>
+              </select>
+              <ChevronDown
+                size={15}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* MOBILE COLLAPSIBLE FILTER DROPDOWN */}
+        {mobileFilterOpen && (
+          <div className="sm:hidden p-3.5 bg-white rounded-xl border border-[#CBD5E1] shadow-xs space-y-3 animate-fade-in">
+            <div className="flex items-center justify-between text-xs font-bold text-black border-b border-[#F1F5F9] pb-2">
+              <span>Bộ lọc nâng cao</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTypeFilter('ALL');
+                  setTimeFilter('NEWEST');
+                }}
+                className="text-[11px] text-[#2563EB] hover:underline"
+              >
+                Đặt lại
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-semibold text-[#64748B] block mb-1">Loại hình</label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => {
+                    setTypeFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-[#CBD5E1] text-xs font-medium text-black bg-white focus:outline-none focus:border-black"
+                >
+                  <option value="ALL">Tất cả loại hình</option>
+                  <option value="Hotel">Khách sạn</option>
+                  <option value="Homestay">Homestay</option>
+                  <option value="Resort">Resort</option>
+                  <option value="Căn hộ">Căn hộ</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-[#64748B] block mb-1">Thứ tự</label>
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-[#CBD5E1] text-xs font-medium text-black bg-white focus:outline-none focus:border-black"
+                >
+                  <option value="NEWEST">Mới nhất</option>
+                  <option value="OLDEST">Cũ nhất</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUMMARY COUNT & SELECT ALL (Figma 16.5) */}
+        <div className="flex items-center justify-between text-xs font-medium pt-1">
+          <span className="font-bold text-black">
+            {filteredListings.length} cơ sở{' '}
+            {activeTab === 'rejected'
+              ? 'đã từ chối'
+              : activeTab === 'pending'
+              ? 'chờ duyệt'
+              : 'đã duyệt'}
+          </span>
+
+          <label className="flex items-center gap-2 cursor-pointer text-[#475569] font-medium select-none">
             <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Tìm theo tên cơ sở, tên host, địa chỉ..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-black placeholder:text-[#94A3B8] focus:outline-none focus:border-black transition shadow-2xs"
+              type="checkbox"
+              checked={
+                filteredListings.length > 0 &&
+                filteredListings.every((h) => selectedIds.includes(h.maCSLT))
+              }
+              onChange={handleSelectAll}
+              className="w-4 h-4 rounded border-[#CBD5E1] accent-black cursor-pointer"
             />
-          </div>
+            <span>Chọn tất cả</span>
+          </label>
+        </div>
 
-          {/* Filter: Loại hình */}
-          <div className="relative">
-            <select
-              value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="appearance-none w-full sm:w-auto px-4 py-2.5 pr-9 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm font-medium text-black focus:outline-none focus:border-black transition cursor-pointer shadow-2xs"
-            >
-              <option value="ALL">Tất cả loại hình</option>
-              <option value="Hotel">Khách sạn (Hotel)</option>
-              <option value="Homestay">Homestay</option>
-              <option value="Resort">Resort</option>
-              <option value="Căn hộ">Căn hộ</option>
-            </select>
-            <ChevronDown
-              size={15}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none"
-            />
-          </div>
+        {/* MOBILE CARD LIST (Figma Frame 16.5) */}
+        <div className="md:hidden space-y-3">
+          {filteredListings.length > 0 ? (
+            filteredListings.map((hotel) => {
+              const isChecked = selectedIds.includes(hotel.maCSLT);
+              const isSelected = selectedHotel?.maCSLT === hotel.maCSLT;
+              const initials =
+                hotel.initials ||
+                (hotel.tenCSLT
+                  ? hotel.tenCSLT
+                      .split(' ')
+                      .map((w) => w[0])
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()
+                  : 'NT');
 
-          {/* Filter: Thời gian gửi */}
-          <div className="relative">
-            <select
-              value={timeFilter}
-              onChange={(e) => setTimeFilter(e.target.value)}
-              className="appearance-none w-full sm:w-auto px-4 py-2.5 pr-9 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm font-medium text-black focus:outline-none focus:border-black transition cursor-pointer shadow-2xs"
-            >
-              <option value="NEWEST">Thời gian gửi ▾</option>
-              <option value="OLDEST">Cũ nhất trước</option>
-            </select>
-            <ChevronDown
-              size={15}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none"
-            />
+              return (
+                <div
+                  key={hotel.maCSLT}
+                  className={`bg-white rounded-2xl p-4 border transition-all ${
+                    isSelected
+                      ? 'border-black shadow-md ring-1 ring-black'
+                      : 'border-[#E2E8F0] shadow-2xs hover:shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => toggleSelectId(hotel.maCSLT, e)}
+                        className="w-4 h-4 rounded border-[#CBD5E1] accent-black cursor-pointer shrink-0"
+                      />
+
+                      {/* Initials Circle */}
+                      <div className="w-11 h-11 rounded-full bg-[#E8DDD9] text-[#78350F] font-bold text-xs flex items-center justify-center shrink-0 tracking-wider">
+                        {initials}
+                      </div>
+
+                      {/* Hotel Info */}
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-black text-sm truncate leading-tight">
+                          {hotel.tenCSLT}
+                        </h3>
+                        <p className="text-xs text-[#64748B] truncate mt-0.5">
+                          {hotel.diaChiChiTiet || hotel.tenPhuong || 'Trần Phú, Nha Trang'}
+                        </p>
+                        <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                          {activeTab === 'rejected'
+                            ? 'Hồ sơ đã xử lý'
+                            : activeTab === 'pending'
+                            ? 'Chờ kiểm duyệt'
+                            : 'Đang hoạt động'}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          {activeTab === 'rejected' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]">
+                              Từ chối
+                            </span>
+                          )}
+                          {activeTab === 'pending' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
+                              Chờ duyệt
+                            </span>
+                          )}
+                          {activeTab === 'live' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+                              Đã duyệt
+                            </span>
+                          )}
+                          <span className="text-[10px] text-[#94A3B8]">
+                            · {hotel.tenLoai}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Xem Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRowClick(hotel)}
+                      className="shrink-0 px-4 py-1.5 rounded-xl bg-[#1E293B] text-white text-xs font-semibold hover:bg-black transition cursor-pointer shadow-xs active:scale-95"
+                    >
+                      Xem
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="bg-white rounded-2xl p-8 text-center text-[#64748B] text-sm border border-[#E2E8F0]">
+              Không có cơ sở lưu trú nào phù hợp.
+            </div>
+          )}
+
+          {/* Mobile Pagination */}
+          <div className="flex flex-col items-center justify-center gap-2 pt-3 pb-2 text-xs text-[#64748B]">
+            <p>
+              Hiển thị {filteredListings.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} -{' '}
+              {Math.min(currentPage * pageSize, filteredListings.length)} trong{' '}
+              {filteredListings.length} cơ sở
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="w-8 h-8 rounded-lg border border-[#CBD5E1] bg-white flex items-center justify-center text-black hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center transition cursor-pointer ${
+                    currentPage === page
+                      ? 'bg-black text-white shadow-xs'
+                      : 'border border-[#CBD5E1] bg-white hover:bg-neutral-100 text-black'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 rounded-lg border border-[#CBD5E1] bg-white flex items-center justify-center text-black hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* DATA TABLE */}
-        <div className="bg-white rounded-2xl border border-[#CBD5E1] shadow-2xs overflow-hidden">
+        {/* DESKTOP DATA TABLE (hidden on mobile, visible on sm/md+) */}
+        <div className="hidden md:block bg-white rounded-2xl border border-[#CBD5E1] shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
               <thead>

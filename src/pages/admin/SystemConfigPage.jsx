@@ -167,25 +167,25 @@ export const SystemConfigPage = () => {
       {/* TOP BAR: BREADCRUMB & RIGHT USER ACTIONS */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-[#64748B]">
+        <div className="hidden sm:flex items-center gap-2 text-xs text-[#64748B]">
           <span className="hover:text-black cursor-pointer">Admin</span>
           <span>&gt;</span>
           <span className="font-semibold text-black">Cấu hình SEO &amp; AI</span>
         </div>
 
         {/* Top Right Actions */}
-        <div className="flex items-center gap-3 self-end sm:self-auto">
+        <div className="flex items-center justify-end w-full sm:w-auto gap-3">
           {/* Notification Bell */}
           <button
             type="button"
-            className="w-9 h-9 rounded-full bg-white border border-[#CBD5E1] flex items-center justify-center text-black hover:bg-neutral-100 transition cursor-pointer shadow-2xs"
+            className="hidden sm:flex w-9 h-9 rounded-full bg-white border border-[#CBD5E1] items-center justify-center text-black hover:bg-neutral-100 transition cursor-pointer shadow-2xs"
             title="Thông báo"
           >
             <Bell size={16} />
           </button>
 
           {/* User Pill */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#CBD5E1] shadow-2xs">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#CBD5E1] shadow-2xs">
             <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-bold">
               {user?.name?.[0]?.toUpperCase() || 'T'}
             </div>
@@ -198,7 +198,7 @@ export const SystemConfigPage = () => {
           <button
             type="button"
             onClick={handleSave}
-            className="px-5 py-2.5 rounded-xl bg-black text-white text-xs sm:text-sm font-bold hover:bg-neutral-800 active:scale-[0.98] transition cursor-pointer shadow-xs"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-black text-white text-xs sm:text-sm font-bold hover:bg-neutral-800 active:scale-[0.98] transition cursor-pointer shadow-xs text-center"
           >
             Lưu cấu hình
           </button>
