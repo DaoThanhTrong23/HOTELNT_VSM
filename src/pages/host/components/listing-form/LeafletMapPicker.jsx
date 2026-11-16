@@ -41,15 +41,22 @@ export const LeafletMapPicker = ({
     onSelectRef.current = onSelect;
   }, [onSelect]);
 
+  const safeBounds = bounds || {
+    latMin: NHA_TRANG_MAP_BOUNDS.SOUTH_WEST.lat,
+    latMax: NHA_TRANG_MAP_BOUNDS.NORTH_EAST.lat,
+    lngMin: NHA_TRANG_MAP_BOUNDS.SOUTH_WEST.lng,
+    lngMax: NHA_TRANG_MAP_BOUNDS.NORTH_EAST.lng,
+  };
+
   const numLat = parseFloat(latitude);
   const numLng = parseFloat(longitude);
   const hasValidPoint =
     !isNaN(numLat) &&
     !isNaN(numLng) &&
-    numLat >= bounds.latMin &&
-    numLat <= bounds.latMax &&
-    numLng >= bounds.lngMin &&
-    numLng <= bounds.lngMax;
+    numLat >= safeBounds.latMin &&
+    numLat <= safeBounds.latMax &&
+    numLng >= safeBounds.lngMin &&
+    numLng <= safeBounds.lngMax;
 
   // Initialize Map
   useEffect(() => {
@@ -68,16 +75,16 @@ export const LeafletMapPicker = ({
           zoom: 15,
           zoomControl: false,
           maxBounds: [
-            [bounds.latMin - 0.05, bounds.lngMin - 0.05],
-            [bounds.latMax + 0.05, bounds.lngMax + 0.05],
+            [safeBounds.latMin - 0.05, safeBounds.lngMin - 0.05],
+            [safeBounds.latMax + 0.05, safeBounds.lngMax + 0.05],
           ],
         });
 
-        // Use Google Maps tiles (roadmap)
-        L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-          attribution: '&copy; Google Maps / OpenStreetMap',
-          maxZoom: 20,
-          subdomains: ['0', '1', '2', '3'],
+        // Use OpenStreetMap standard tiles (100% reliable, unblocked by Brave Shields or adblockers)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c'],
         }).addTo(map);
 
         // Red Pin Marker

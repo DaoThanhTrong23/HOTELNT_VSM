@@ -2,7 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Play, X } from 'lucide-react';
 import { MEDIA_LIMITS } from '../../../../constants/enums';
 import { deleteListingMedia, isCanceled, uploadListingMedia } from '../../api/hostApi';
-import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../../../utils/formatters';
+import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE, DEFAULT_HOTEL_IMAGES } from '../../../../utils/formatters';
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve) => {
+    if (!file || !(file instanceof Blob)) {
+      resolve('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
 
 const MB = 1024 * 1024;
 const RULES = {
@@ -306,7 +318,13 @@ export const MediaStep = ({
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" aria-label="Danh sách ảnh">
             {images.map((item, index) => {
               const rawUrl = item.url || item.duongDan || item.duongDanAnh;
-              const imgSrc = resolveHotelImageUrl(rawUrl) || item.localPreviewUrl;
+              const fallbackSrc = DEFAULT_HOTEL_IMAGES[index % DEFAULT_HOTEL_IMAGES.length] || FALLBACK_HOTEL_IMAGE;
+              const localUrl =
+                item.localPreviewUrl ||
+                item.previewUrl ||
+                (typeof rawUrl === 'string' && (rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) ? rawUrl : null);
+              const resolvedUrl = resolveHotelImageUrl(rawUrl);
+              const imgSrc = localUrl || resolvedUrl || fallbackSrc;
 
               return (
                 <li
@@ -330,10 +348,10 @@ export const MediaStep = ({
                     loading="lazy"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      if (item.localPreviewUrl && e.target.src !== item.localPreviewUrl) {
-                        e.target.src = item.localPreviewUrl;
-                      } else if (FALLBACK_HOTEL_IMAGE && e.target.src !== FALLBACK_HOTEL_IMAGE) {
-                        e.target.src = FALLBACK_HOTEL_IMAGE;
+                      if (localUrl && e.target.src !== localUrl) {
+                        e.target.src = localUrl;
+                      } else if (fallbackSrc && e.target.src !== fallbackSrc) {
+                        e.target.src = fallbackSrc;
                       }
                     }}
                   />

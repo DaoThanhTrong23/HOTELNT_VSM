@@ -86,6 +86,33 @@ const SECONDARY_BUTTON =
   'min-h-[44px] px-5 rounded-lg border border-[#CBD5E1] bg-white text-sm font-medium text-black hover:bg-[#F8F4E8] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 
 const editPathOf = (id) => generatePath(ROUTES.HOST.EDIT_HOTEL, { id: String(id) });
+
+const MEDIA_STORAGE_KEY_PREFIX = 'hotelnt_custom_media_';
+
+const getStoredMedia = (id) => {
+  if (!id) return null;
+  try {
+    const raw = localStorage.getItem(`${MEDIA_STORAGE_KEY_PREFIX}${id}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const setStoredMedia = (id, mediaList) => {
+  if (!id) return;
+  try {
+    if (!mediaList || mediaList.length === 0) {
+      localStorage.removeItem(`${MEDIA_STORAGE_KEY_PREFIX}${id}`);
+    } else {
+      localStorage.setItem(`${MEDIA_STORAGE_KEY_PREFIX}${id}`, JSON.stringify(mediaList));
+    }
+  } catch {
+    /* ignore storage quota limits */
+  }
+};
 const sortMedia = (media) =>
   [...(Array.isArray(media) ? media : [])]
     .map((item, idx) => ({
@@ -175,14 +202,16 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       .then((data) => {
         if (controller.signal.aborted) return;
         const formValues = toFormValues(data);
-        const sortedMedia = sortMedia(data?.media || data?.hinhAnh || data?.danhSachAnh);
+        const serverMedia = sortMedia(data?.media || data?.hinhAnh || data?.danhSachAnh);
+        const stored = getStoredMedia(listingId);
+        const sortedMedia = stored && stored.length > 0 ? stored : serverMedia;
         setDetail(data);
         setValues(formValues);
         setBaseline(formValues);
         setMedia(sortedMedia);
         setMediaCounts({
-          soAnh: data?.soAnh ?? countMedia(sortedMedia, 'IMAGE'),
-          soVideo: data?.soVideo ?? countMedia(sortedMedia, 'VIDEO'),
+          soAnh: countMedia(sortedMedia, 'IMAGE'),
+          soVideo: countMedia(sortedMedia, 'VIDEO'),
         });
         setDetailState({ status: 'ready', error: null });
       })
@@ -488,9 +517,14 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
     return confirmed;
   };
 
+  const storageKey = listingId || 'draft';
   const mediaHandlers = {
     onUploaded: (uploaded) => {
-      setMedia((prev) => [...prev, uploaded]);
+      setMedia((prev) => {
+        const next = [...prev, uploaded];
+        setStoredMedia(storageKey, next);
+        return next;
+      });
       setMediaCounts((prev) => ({
         soAnh: uploaded?.soAnh ?? prev.soAnh + (uploaded?.type === 'IMAGE' ? 1 : 0),
         soVideo: uploaded?.soVideo ?? prev.soVideo + (uploaded?.type === 'VIDEO' ? 1 : 0),
@@ -498,7 +532,11 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       setChecklistIssues([]);
     },
     onDeleted: (mediaId, response) => {
-      setMedia((prev) => prev.filter((item) => item.mediaId !== mediaId));
+      setMedia((prev) => {
+        const next = prev.filter((item) => item.mediaId !== mediaId);
+        setStoredMedia(storageKey, next);
+        return next;
+      });
       setChecklistIssues([]);
       if (!response) {
         reloadDetail();
@@ -507,7 +545,10 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       setMediaCounts((prev) => ({ soAnh: response.soAnh ?? prev.soAnh, soVideo: response.soVideo ?? prev.soVideo }));
       if (response.thayDoiTrangThai) reloadDetail();
     },
-    onReorder: setMedia,
+    onReorder: (reordered) => {
+      setMedia(reordered);
+      setStoredMedia(storageKey, reordered);
+    },
     onBlockingError: handleActionError,
     // The server moved an approved listing to PENDING; reload once the queue is done.
     onQueueIdle: () => {
