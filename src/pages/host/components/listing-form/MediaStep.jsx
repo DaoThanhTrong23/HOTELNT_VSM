@@ -11,10 +11,62 @@ const readFileAsDataUrl = (file) =>
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve(reader.result || '');
     reader.onerror = () => resolve('');
     reader.readAsDataURL(file);
   });
+
+const createCompressedDataUrl = async (file) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || typeof Image === 'undefined') {
+    return readFileAsDataUrl(file);
+  }
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const tempUrl = typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
+      if (!tempUrl) {
+        readFileAsDataUrl(file).then(resolve);
+        return;
+      }
+      img.onload = () => {
+        try {
+          if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(tempUrl);
+          let width = img.width || 800;
+          let height = img.height || 600;
+          const maxDim = 1000;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext?.('2d');
+          if (!ctx) {
+            readFileAsDataUrl(file).then(resolve);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        } catch {
+          readFileAsDataUrl(file).then(resolve);
+        }
+      };
+      img.onerror = () => {
+        if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(tempUrl);
+        readFileAsDataUrl(file).then(resolve);
+      };
+      img.src = tempUrl;
+    } catch {
+      readFileAsDataUrl(file).then(resolve);
+    }
+  });
+};
 
 const MB = 1024 * 1024;
 const RULES = {
@@ -147,11 +199,12 @@ export const MediaStep = ({
           },
         );
         if (!mountedRef.current) break;
-        const localPreview = previewsRef.current.get(entry.localId) || entry.previewUrl;
+        const localPreview = entry.dataUrl || previewsRef.current.get(entry.localId) || entry.previewUrl;
         removeEntry(entry.localId, true);
         uploadedCount += 1;
         const enrichedUploaded = {
           ...uploaded,
+          dataUrl: localPreview,
           localPreviewUrl: localPreview,
         };
         latestRef.current.onUploaded?.(enrichedUploaded);
@@ -194,6 +247,17 @@ export const MediaStep = ({
       const localId = `local-${localIdRef.current}`;
       const previewUrl = !error && type === 'IMAGE' ? createPreview(file) : null;
       if (previewUrl) previewsRef.current.set(localId, previewUrl);
+
+      // Async: tạo ảnh nén base64 (dataUrl) để không bao giờ bị mất/thu hồi và lưu được vào localStorage
+      if (!error && type === 'IMAGE') {
+        createCompressedDataUrl(file).then((dUrl) => {
+          if (dUrl && mountedRef.current) {
+            previewsRef.current.set(localId, dUrl);
+            updateEntry(localId, { previewUrl: dUrl, dataUrl: dUrl });
+          }
+        });
+      }
+
       return { localId, file, name: file.name, size: file.size, type, status: error ? 'invalid' : 'queued', progress: 0, error, previewUrl };
     });
 
@@ -320,6 +384,7 @@ export const MediaStep = ({
               const rawUrl = item.url || item.duongDan || item.duongDanAnh;
               const fallbackSrc = DEFAULT_HOTEL_IMAGES[index % DEFAULT_HOTEL_IMAGES.length] || FALLBACK_HOTEL_IMAGE;
               const localUrl =
+                item.dataUrl ||
                 item.localPreviewUrl ||
                 item.previewUrl ||
                 (typeof rawUrl === 'string' && (rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) ? rawUrl : null);
@@ -396,8 +461,12 @@ export const MediaStep = ({
                     failed ? 'border border-[#DC2626] bg-[#FEF2F2]' : 'bg-[#F1F5F9]'
                   }`}
                 >
-                  {entry.previewUrl && !failed && (
-                    <img src={entry.previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                  {entry.previewUrl && (
+                    <img
+                      src={entry.previewUrl}
+                      alt={entry.name}
+                      className={`w-full h-full object-cover ${failed ? 'opacity-35' : 'opacity-60'}`}
+                    />
                   )}
                   <div className="absolute inset-0 p-2 flex flex-col justify-end text-xs">
                     <p className="font-medium text-black truncate">{entry.name}</p>

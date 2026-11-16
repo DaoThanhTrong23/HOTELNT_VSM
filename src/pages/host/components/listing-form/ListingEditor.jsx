@@ -120,6 +120,8 @@ const sortMedia = (media) =>
       mediaId: item.mediaId ?? item.id ?? item.maHinhAnh ?? `media-${idx}`,
       type: item.type ?? item.loai ?? (String(item.url || item.duongDan || '').endsWith('.mp4') ? 'VIDEO' : 'IMAGE'),
       url: item.url ?? item.duongDan ?? item.duongDanAnh ?? item.duongDanTep ?? '',
+      dataUrl: item.dataUrl ?? (typeof item.url === 'string' && item.url.startsWith('data:') ? item.url : null),
+      localPreviewUrl: item.localPreviewUrl ?? item.dataUrl ?? null,
       thuTu: item.thuTu ?? item.order ?? idx,
     }))
     .sort((a, b) => (a.thuTu ?? 0) - (b.thuTu ?? 0));

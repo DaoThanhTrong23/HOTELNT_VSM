@@ -14,6 +14,11 @@ const isValidJwt = (token) => typeof token === 'string' && token.split('.').leng
 // Request Interceptor: Tự động đính kèm JWT Token vào Header nếu có
 axiosClient.interceptors.request.use(
   (config) => {
+    // Nếu data là FormData, xóa Content-Type mặc định để trình duyệt tự tạo boundary multipart chuẩn
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
     console.info(`🌐 [API Request] ${config.method?.toUpperCase()} ${fullUrl}`, config.params || config.data || '');
     const token = localStorage.getItem('token');
