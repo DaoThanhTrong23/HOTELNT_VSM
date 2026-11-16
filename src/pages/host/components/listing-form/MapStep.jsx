@@ -175,7 +175,7 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
       ) : (
         <div
           data-testid="map-fallback"
-          className="h-40 rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center gap-2 text-center px-4"
+          className="min-h-40 py-4 rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center gap-2 text-center px-4"
         >
           <MapPin size={22} className="text-[#64748B]" />
           <p className="text-sm text-[#64748B]">
@@ -183,6 +183,32 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
               ? 'Đang tải bản đồ...'
               : 'Không tải được bản đồ. Bạn vẫn có thể nhập vĩ độ, kinh độ.'}
           </p>
+          {!readOnly && mapStatus !== 'loading' && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+              <span className="text-xs text-[#64748B]">Chọn nhanh tọa độ Nha Trang:</span>
+              <button
+                type="button"
+                onClick={() => emitPosition(12.2388, 109.1967)}
+                className="px-2.5 py-1 text-xs rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8F4E8] text-black font-medium transition cursor-pointer shadow-2xs"
+              >
+                Trung tâm Nha Trang (12.2388, 109.1967)
+              </button>
+              <button
+                type="button"
+                onClick={() => emitPosition(12.2451, 109.1943)}
+                className="px-2.5 py-1 text-xs rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8F4E8] text-black font-medium transition cursor-pointer shadow-2xs"
+              >
+                Đường Trần Phú (12.2451, 109.1943)
+              </button>
+              <button
+                type="button"
+                onClick={() => emitPosition(12.27, 109.21)}
+                className="px-2.5 py-1 text-xs rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8F4E8] text-black font-medium transition cursor-pointer shadow-2xs"
+              >
+                Phạm Văn Đồng (12.2700, 109.2100)
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -199,6 +225,7 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
               type="text"
               inputMode="decimal"
               value={latitude}
+              placeholder="Ví dụ: 12.2388"
               onChange={(event) => onChange({ latitude: event.target.value })}
               aria-invalid={message ? 'true' : 'false'}
               aria-describedby={message ? errorId('toaDo') : undefined}
@@ -211,6 +238,7 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
               type="text"
               inputMode="decimal"
               value={longitude}
+              placeholder="Ví dụ: 109.1967"
               onChange={(event) => onChange({ longitude: event.target.value })}
               aria-invalid={message ? 'true' : 'false'}
               aria-describedby={message ? errorId('toaDo') : undefined}
