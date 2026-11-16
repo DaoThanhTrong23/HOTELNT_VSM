@@ -2,7 +2,8 @@
 // belong to another member and the test cases only require "Host đã đăng nhập".
 export const HOST_USER = {
   id: 'host-e2e',
-  name: 'Chủ cơ sở HotelNT',
+  // With a real backend, E2E_HOST_NAME makes the Sidebar show the test account's own name.
+  name: process.env.E2E_HOST_NAME || 'Chủ cơ sở HotelNT',
   email: 'host.demo@hotelnt.vn',
   phone: '',
   role: 'HOST',

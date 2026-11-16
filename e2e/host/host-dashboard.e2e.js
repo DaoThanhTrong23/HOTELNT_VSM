@@ -79,6 +79,7 @@ it('TC_HDB_01: Hiển thị bảng danh sách cơ sở lưu trú và 4 thẻ th�
   const page = dashboard();
   await page.open();
   await page.waitThumbnails();
+  await session.shot('Bước 1-2: trang /host/dashboard, 4 thẻ thống kê và bảng');
   const { headers, rows } = await page.readTable();
 
   await soft.check('Hiển thị 4 thẻ thống kê (Tổng số, Đang hiển thị, Chờ duyệt, Bị từ chối)', async () => {
@@ -142,6 +143,7 @@ it('TC_HDB_02: Chuyển đổi các Tab trạng thái lọc (ALL, DRAFT, PENDING
       const ok = filtered(rows) && (!isMock() || rows.length === expectedRows);
       return { ok, actual: `${rows.length} hàng, trạng thái: ${statuses.join(', ') || '(trống)'}` };
     });
+    await session.shot(`Bấm tab ${label}`);
   }
 
   soft.note("Cách đọc: tab 'Tất cả' cần ?trangThai=ALL, vì tiêu đề case liệt kê ALL cùng 5 trạng thái.");
@@ -153,6 +155,7 @@ it('TC_HDB_03: Tìm kiếm cơ sở lưu trú theo từ khóa với cơ chế De
   const page = dashboard();
   const { driver } = session;
   await page.open();
+  await session.shot('Trước khi tìm kiếm');
   await driver.executeScript(instrumentSearch);
 
   await page.search().sendKeys('Breeze');
@@ -190,6 +193,7 @@ it('TC_HDB_03: Tìm kiếm cơ sở lưu trú theo từ khóa với cơ chế De
   await page.waitLoaded();
   const hasKeyword = (row) => row.name.toLowerCase().includes('breeze');
   const rows = await page.waitRows((items) => items.length > 0 && items.every(hasKeyword));
+  await session.shot('Gõ Breeze: URL có keyword, bảng đã lọc');
   await soft.check('Danh sách kết quả hiển thị đúng theo tiêu chí lọc (Post-condition)', () => {
     const matching = rows.filter(hasKeyword).length;
     return {
@@ -209,6 +213,7 @@ it('TC_HDB_04: Nút Action theo trạng thái: Cơ sở APPROVED (Đã duyệt)'
   await page.open();
   const row = await page.rowByStatus('Đã duyệt');
   const actions = await page.actionsOf(row.id);
+  await session.shot('Bước 1-2: hàng Đã duyệt có nút Xem và Sửa');
 
   await soft.check("Hiển thị 2 nút: 'Xem' và 'Sửa'", () => ({
     ok: sameSet(
@@ -221,12 +226,14 @@ it('TC_HDB_04: Nút Action theo trạng thái: Cơ sở APPROVED (Đã duyệt)'
     const path = await followLink(driver, await page.action(row.id, 'Xem'));
     return { ok: path === `/hotel/${row.id}`, actual: `Mở ${path}` };
   });
+  await session.shot('Bấm Xem: trang công khai /hotel/:id');
 
   await page.open();
   await soft.check("'Sửa' mở /host/hotels/:id/edit", async () => {
     const path = await followLink(driver, await page.action(row.id, 'Sửa'));
     return { ok: path === `/host/hotels/${row.id}/edit`, actual: `Mở ${path}` };
   });
+  await session.shot('Bấm Sửa: trang sửa cơ sở');
   soft.assertAll();
 });
 
@@ -238,6 +245,7 @@ it('TC_HDB_05: Nút Action theo trạng thái: Cơ sở PENDING (Chờ duyệt)'
   const row = await page.rowByStatus('Chờ duyệt');
   const actions = await page.actionsOf(row.id);
   const editPath = `/host/hotels/${row.id}/edit`;
+  await session.shot('Bước 1-2: hàng Chờ duyệt có nút Xem và Rút lại (màu cảnh báo)');
 
   await soft.check("Hiển thị nút 'Xem' và nút 'Rút lại'", () => ({
     ok: sameSet(
@@ -275,6 +283,7 @@ it('TC_HDB_05: Nút Action theo trạng thái: Cơ sở PENDING (Chờ duyệt)'
       actual: `${editable.length} ô còn sửa được${editable.length ? ` (${editable.map((control) => control.id || control.tag).join(', ')})` : ''}, tên cơ sở ${nameShown ? 'có' : 'không'} hiện`,
     };
   });
+  await session.shot('Bấm Xem: trang sửa ở chế độ chỉ đọc');
   soft.assertAll();
 });
 
@@ -286,10 +295,12 @@ it("TC_HDB_06: Bấm nút 'Rút lại' yêu cầu kiểm duyệt trên Dashboard
   soft.note(`Sheet ghi "Mã cơ sở = 12"; test dùng cơ sở Chờ duyệt có sẵn (mã ${row.id}).`);
   const pendingBefore = await page.tabCount('PENDING');
   const draftBefore = await page.tabCount('DRAFT');
+  await session.shot('Trước khi rút: hàng Chờ duyệt');
 
   await (await page.action(row.id, 'Rút lại')).click();
   const dialog = await page.dialog();
   const buttons = await page.dialogButtons(dialog);
+  await session.shot('Bước 1-2: bấm Rút lại, hộp xác nhận cảnh báo');
 
   await soft.check('Popup ConfirmDialog hiển thị cảnh báo', async () => {
     const title = (await dialog.findElement(By.css('h2')).getText()).trim();
@@ -305,6 +316,7 @@ it("TC_HDB_06: Bấm nút 'Rút lại' yêu cầu kiểm duyệt trên Dashboard
   if (confirm.text !== 'Xác nhận rút') soft.note(`Đã bấm nút xác nhận thật '${confirm.text}' để kiểm tiếp ý sau.`);
   await confirm.el.click();
   await page.waitDialogClosed();
+  await session.shot('Bước 3: bấm Xác nhận rút, toast thông báo');
 
   await soft.check('Sau khi xác nhận, cơ sở chuyển trạng thái từ PENDING về BẢN NHÁP (DRAFT)', async () => {
     const statusOf = (items) => items.find((item) => item.id === row.id)?.status;
@@ -316,6 +328,7 @@ it("TC_HDB_06: Bấm nút 'Rút lại' yêu cầu kiểm duyệt trên Dashboard
       actual: `Nhãn '${status}'; tab Chờ duyệt ${pendingBefore}→${pendingAfter}, Bản nháp ${draftBefore}→${draftAfter}`,
     };
   });
+  await session.shot('Kết quả: cơ sở chuyển về Bản nháp');
   soft.assertAll();
 });
 
@@ -327,6 +340,7 @@ it('TC_HDB_07: Nút Action theo trạng thái: Cơ sở REJECTED (Bị từ ch�
   const row = await page.rowByStatus('Bị từ chối');
   const actions = await page.actionsOf(row.id);
   const editPath = `/host/hotels/${row.id}/edit`;
+  await session.shot('Bước 1: hàng Bị từ chối có nút Xem & sửa và Xóa (màu đỏ)');
 
   await soft.check("Hiển thị nút 'Xem & sửa' và nút 'Xóa'", () => ({
     ok: sameSet(
@@ -361,6 +375,7 @@ it('TC_HDB_07: Nút Action theo trạng thái: Cơ sở REJECTED (Bị từ ch�
       actual: `${reason || 'Không có dòng lý do'}; ô 'Tên cơ sở lưu trú' ${editable ? 'sửa được' : 'không sửa được'}`,
     };
   });
+  await session.shot('Bấm Xem & sửa: trang sửa hiện lý do từ chối');
   soft.assertAll();
 });
 
@@ -377,10 +392,12 @@ it('TC_HDB_08: Xóa cơ sở lưu trú (Bản nháp / Bị từ chối)', async 
     await page.open();
     const row = await page.rowByStatus(label);
     const allBefore = await page.tabCount('ALL');
+    await session.shot(`${label}: trước khi xóa`);
 
     await (await page.action(row.id, 'Xóa')).click();
     const dialog = await page.dialog();
     const buttons = await page.dialogButtons(dialog);
+    await session.shot(`${label}: bước 1-2, hộp xác nhận xóa màu đỏ`);
     const confirm = buttons.find((button) => button.text === 'Xác nhận xóa') ?? buttons.at(-1);
 
     await soft.check(`Bật ConfirmDialog màu đỏ${tag}`, async () => {
@@ -404,6 +421,7 @@ it('TC_HDB_08: Xóa cơ sở lưu trú (Bản nháp / Bị từ chối)', async 
     const toastSeen = toast
       ? { text: normalizeText(await toast.getText()), color: toHex(await toast.getCssValue('color')) }
       : null;
+    await session.shot(`${label}: bước 3, bấm Xác nhận xóa, toast xanh`);
 
     await soft.check(`Xác nhận thành công cơ sở bị xóa khỏi danh sách${tag}`, async () => {
       const rows = await page.waitRows((items) => !items.some((item) => item.id === row.id));
@@ -414,6 +432,7 @@ it('TC_HDB_08: Xóa cơ sở lưu trú (Bản nháp / Bị từ chối)', async 
         actual: `${stillListed ? 'Vẫn còn' : 'Không còn'} hàng mã ${row.id}; tab Tất cả ${allBefore}→${allAfter}`,
       };
     });
+    await session.shot(`${label}: kết quả, cơ sở không còn trong danh sách`);
     await soft.check(`Toast thông báo xanh${tag}`, () => ({
       ok: toastSeen?.color === FIGMA_COLORS.success,
       actual: toastSeen ? `Toast "${toastSeen.text}", chữ ${toastSeen.color}` : 'Không có toast',

@@ -28,6 +28,7 @@ Lần chạy đầu cần mạng: Selenium Manager tự tải Chrome for Testing
 | `E2E_TARGET` | `mock`: dữ liệu giả trong `src/pages/host/api/hostMockApi.js`. `backend`: tắt mock, gọi API thật | `mock` |
 | `VITE_API_BASE_URL` | Địa chỉ API khi `E2E_TARGET=backend` | Theo `.env` / `axiosClient` |
 | `E2E_HOST_TOKEN` | JWT của tài khoản Host dùng để test, chỉ cần khi chạy với backend | Chuỗi giả `e2e-mock-token` |
+| `E2E_HOST_NAME` | Họ tên hiện trên Sidebar, nên đặt đúng tên tài khoản Host khi chạy với backend | `Chủ cơ sở HotelNT` |
 | `E2E_BROWSER` | `chrome`, `firefox`, `MicrosoftEdge`, `safari` | `chrome` |
 | `E2E_HEADED` | `1` để hiện cửa sổ trình duyệt khi chạy | Không hiện |
 
@@ -39,6 +40,7 @@ Sau mỗi lần chạy, trong `e2e/reports/` (không commit):
 
 - `host-results.csv`: 4 cột `Test Case#`, `Actual Result`, `Status`, `Notes`, mỗi case một dòng, theo thứ tự trong sheet.
 - `screenshots/<mã case>.png`: ảnh màn hình lúc case không Pass.
+- `steps/<mã case>/<số>-<bước>.png`: ảnh **toàn trang** ở từng bước của case (mở trang, bấm tab, mở hộp xác nhận, sau khi lưu…), chụp ở mọi lần chạy, Pass hay Fail. Chạy lại một case thì thư mục của case đó được chụp lại từ đầu.
 - `results.json`: kết quả đầy đủ của Vitest, mỗi test có `meta.checks` (từng ý, đúng/sai, thực tế).
 
 | Status | Nghĩa |

@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { error as webdriverError } from 'selenium-webdriver';
+import { By, error as webdriverError } from 'selenium-webdriver';
 import { ProfilePage } from '../pages/profile-page.js';
 import { FIGMA_COLORS } from '../support/design-tokens.js';
 import { DEFAULT_TIMEOUT, browserSession } from '../support/driver.js';
@@ -25,11 +25,12 @@ const WRONG_OLD_PASSWORD = 'SaiMatKhau@1';
 const SHORT_NEW_PASSWORD = 'Ab1@';
 const MISMATCHED_CONFIRM = 'Ab1@x';
 const VALID_NEW_PASSWORD = 'Abcdefg1_';
-const PASSWORD_ERRORS = [
-  { id: 'password-oldPassword', field: 'mật khẩu cũ', message: 'Mật khẩu cũ không chính xác' },
+const OLD_PASSWORD_ERROR = 'Mật khẩu cũ không chính xác';
+const FORMAT_ERRORS = [
   { id: 'password-newPassword', field: 'mật khẩu mới', message: 'Mật khẩu mới phải từ 8 ký tự trở lên' },
   { id: 'password-confirmPassword', field: 'xác nhận', message: 'Mật khẩu xác nhận không trùng khớp' },
 ];
+const PASSWORD_CHANGED_TOAST = 'Đổi mật khẩu thành công';
 // Typing into a read-only input may be refused by the driver instead of being ignored; both mean "not editable".
 const NOT_EDITABLE_ERRORS = [webdriverError.InvalidElementStateError, webdriverError.ElementNotInteractableError];
 
@@ -58,6 +59,7 @@ it('TC_PRF_01: Hiển thị thông tin cá nhân Host và KHÓA trường Email,
   const soft = session.start(context);
   const page = profilePage();
   await page.open();
+  await session.shot('Bước 1: trang /host/profile, Email và CCCD có ổ khóa');
   const values = Object.fromEntries(await Promise.all(FIELDS.map(async ({ id }) => [id, await page.valueOf(id)])));
 
   await soft.check('Hiển thị đầy đủ Họ tên, SĐT, Email, CCCD', () => ({
@@ -111,6 +113,7 @@ it('TC_PRF_01: Hiển thị thông tin cá nhân Host và KHÓA trường Email,
       actual: results.map((result) => `${result.name} ${result.changed ? 'gõ được' : 'gõ không đổi giá trị'}`).join(', '),
     };
   });
+  await session.shot('Bước 2: bấm và gõ vào Email, CCCD, giá trị không đổi');
 
   soft.note('Cách đọc: "CCCD (12 số)" là 12 ký tự đã che một phần (ví dụ 079******234), đúng như API trả về và SRS FR-13.');
   soft.assertAll();
@@ -127,6 +130,7 @@ it('TC_PRF_02: Cập nhật Họ tên và Số điện thoại cá nhân hợp l
   if (typedName !== NEW_NAME || typedPhone !== NEW_PHONE) {
     throw new Error(`Không nhập được dữ liệu test: họ tên '${typedName}', SĐT '${typedPhone}'`);
   }
+  await session.shot('Bước 1-2: sửa Họ tên và SĐT');
 
   const buttons = await page.buttonsOf(await page.profileForm());
   const asked = buttons.find((button) => button.text === 'Lưu thay đổi');
@@ -142,6 +146,7 @@ it('TC_PRF_02: Cập nhật Họ tên và Số điện thoại cá nhân hợp l
   // The toast closes after 4s, so it is read right away and checked in sheet order below.
   const toast = await page.toast().catch(() => null);
   const toastSeen = toast ? { text: normalizeText(await toast.getText()), color: toHex(await toast.getCssValue('color')) } : null;
+  await session.shot('Bước 3: bấm Lưu thay đổi, toast xanh');
 
   await soft.check('Hệ thống lưu thành công', async () => {
     const banners = await page.banners(await page.profileForm());
@@ -167,51 +172,59 @@ it('TC_PRF_02: Cập nhật Họ tên và Số điện thoại cá nhân hợp l
     if (text.includes(NEW_NAME)) return { ok: true, actual: `Sidebar hiện '${NEW_NAME}'` };
     return { ok: false, actual: text.includes(HOST_USER.name) ? `Sidebar vẫn hiện '${HOST_USER.name}'` : 'Sidebar không hiện tên mới' };
   });
+  await session.shot('Kết quả: Sidebar hiện tên mới');
   soft.assertAll();
 });
 
+// TC_PRF_03 has two passes since 16/11/2026: the API answers one error per request and checks the new password first,
+// so the old-password error needs a valid new password; the length and confirmation errors come from the browser.
 it('TC_PRF_03: Validate form Đổi mật khẩu tài khoản Host', async (context) => {
   const soft = session.start(context);
   const page = profilePage();
   const { driver } = session;
+  const changePasswordCalls = () =>
+    driver.executeScript(() => performance.getEntriesByType('resource').filter((entry) => entry.name.includes('/change-password')).length);
+  const passwordChanged = async () => {
+    const toasts = await driver.findElements(By.css('[data-testid="host-toast"]'));
+    const texts = await Promise.all(toasts.map((toast) => toast.getText()));
+    return texts.some((text) => text.includes(PASSWORD_CHANGED_TOAST));
+  };
 
-  // Extra pass, recorded in the notes only: the old password message needs a valid new password to reach the server.
-  // It runs first so a failure screenshot shows the sheet's own pass.
-  try {
-    await page.open();
-    await fillPasswords(page, { oldPassword: WRONG_OLD_PASSWORD, newPassword: VALID_NEW_PASSWORD, confirmPassword: VALID_NEW_PASSWORD });
-    const submit = await page.submitButtonOf(await page.passwordForm());
-    const submitText = (await submit.getText()).trim();
-    await submit.click();
-    await driver.wait(async () => (await page.errorOf('password-oldPassword')) !== '', DEFAULT_TIMEOUT).catch(() => {});
-    const message = await page.errorOf('password-oldPassword');
-    soft.note(
-      `Lượt phụ (mật khẩu cũ sai, mật khẩu mới hợp lệ '${VALID_NEW_PASSWORD}', bấm '${submitText}'): dưới ô mật khẩu cũ ${message ? `hiện '${message}'` : 'không có lỗi'}`,
-    );
-  } catch (error) {
-    soft.note(`Lượt phụ không chạy được: ${String(error?.message ?? error).split('\n')[0]}`);
-  }
+  // Lượt 1: old password wrong, new password valid and confirmed.
+  await page.open();
+  await fillPasswords(page, { oldPassword: WRONG_OLD_PASSWORD, newPassword: VALID_NEW_PASSWORD, confirmPassword: VALID_NEW_PASSWORD });
+  await session.shot('Lượt 1, bước 1-2: mật khẩu cũ sai, mật khẩu mới hợp lệ, xác nhận khớp');
+  await (await page.submitButtonOf(await page.passwordForm())).click();
+  await driver.wait(async () => (await page.errorOf('password-oldPassword')) !== '', DEFAULT_TIMEOUT).catch(() => {});
+  await session.shot("Lượt 1, bước 3: bấm Lưu, báo 'Mật khẩu cũ không chính xác'");
+  await soft.check(`Lượt 1: hệ thống báo lỗi '${OLD_PASSWORD_ERROR}'`, async () => {
+    const shown = await page.errorOf('password-oldPassword');
+    return {
+      ok: normalizeText(shown).includes(normalizeText(OLD_PASSWORD_ERROR)),
+      actual: `Dưới ô mật khẩu hiện tại: ${shown ? `'${shown}'` : '(không có lỗi)'}`,
+    };
+  });
+  await soft.check('Lượt 1: mật khẩu không bị đổi', async () => {
+    const changed = await passwordChanged();
+    return { ok: !changed, actual: changed ? 'Có thông báo đổi mật khẩu thành công' : 'Không có thông báo đổi mật khẩu thành công' };
+  });
 
+  // Lượt 2: new password shorter than 8 characters, confirmation different.
   await page.open();
   await fillPasswords(page, { oldPassword: WRONG_OLD_PASSWORD, newPassword: SHORT_NEW_PASSWORD, confirmPassword: MISMATCHED_CONFIRM });
+  await session.shot('Lượt 2, bước 1-3: mật khẩu mới dưới 8 ký tự, xác nhận không khớp');
+  const callsBefore = await changePasswordCalls();
   const buttons = await page.buttonsOf(await page.passwordForm());
-  const asked = buttons.find((button) => button.text === 'Lưu');
-
-  await soft.check('Bấm Lưu (bước 4)', () => ({
-    ok: Boolean(asked?.enabled),
-    actual: asked ? `Nút 'Lưu' ${asked.enabled ? 'bấm được' : 'đang tắt'}` : `Không có nút 'Lưu' (nút hiện có: ${textsOf(buttons)})`,
+  const save = buttons.find((button) => button.text === 'Lưu');
+  await soft.check("Lượt 2: bấm 'Lưu' (bước 4)", () => ({
+    ok: Boolean(save?.enabled),
+    actual: save ? `Nút 'Lưu' ${save.enabled ? 'bấm được' : 'đang tắt'}` : `Không có nút 'Lưu' (nút hiện có: ${textsOf(buttons)})`,
   }));
-  const submit = asked ?? buttons.at(-1);
-  if (submit?.enabled) {
-    if (!asked) soft.note(`Đã bấm nút thật '${submit.text}' để kiểm tiếp các ý sau.`);
-    await submit.el.click();
-    await driver.wait(async () => (await page.errorOf('password-oldPassword')) !== '', 3000).catch(() => {});
-  } else if (submit) {
-    soft.note(`Nút '${submit.text}' đang tắt nên không gửi được; các câu lỗi được kiểm là câu hiện ngay khi nhập.`);
-  }
-
-  for (const { id, field, message } of PASSWORD_ERRORS) {
-    await soft.check(`Hệ thống báo lỗi '${message}'`, async () => {
+  if (save?.enabled) await save.el.click();
+  await driver.sleep(1500);
+  await session.shot('Lượt 2, bước 4: bấm Lưu, báo lỗi mật khẩu mới và xác nhận');
+  for (const { id, field, message } of FORMAT_ERRORS) {
+    await soft.check(`Lượt 2: hệ thống báo lỗi '${message}'`, async () => {
       const shown = await page.errorOf(id);
       return {
         ok: normalizeText(shown).includes(normalizeText(message)),
@@ -219,7 +232,13 @@ it('TC_PRF_03: Validate form Đổi mật khẩu tài khoản Host', async (cont
       };
     });
   }
-
-  soft.note('Post-condition "Mật khẩu mới được cập nhật, yêu cầu đăng nhập lại" là của trường hợp đổi thành công, không áp dụng cho dữ liệu sai của case này.');
+  await soft.check('Lượt 2: không gửi yêu cầu, mật khẩu không bị đổi', async () => {
+    const sent = (await changePasswordCalls()) - callsBefore;
+    const changed = await passwordChanged();
+    return {
+      ok: sent === 0 && !changed,
+      actual: `${sent} yêu cầu đổi mật khẩu được gửi; ${changed ? 'có' : 'không có'} thông báo đổi mật khẩu thành công`,
+    };
+  });
   soft.assertAll();
 });

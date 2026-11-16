@@ -27,8 +27,11 @@ const readTable = () => {
       created: cell('Ngày tạo')?.textContent.trim() ?? '',
       status: badge?.textContent.trim() ?? '',
       statusColor: badge ? getComputedStyle(badge).color : '',
-      // An <img> counts once it has loaded; the gray placeholder is what the app shows for a listing without photos.
-      hasThumbnail: image ? image.complete && image.naturalWidth > 0 : Boolean(cells[0]?.querySelector('[data-testid="thumbnail-placeholder"]')),
+      // An <img> counts once the listing's own photo has loaded (not the stock fallback the app swaps in when it
+      // fails); the gray placeholder is what the app shows for a listing without photos.
+      hasThumbnail: image
+        ? image.complete && image.naturalWidth > 0 && image.dataset.fallback !== 'true'
+        : Boolean(cells[0]?.querySelector('[data-testid="thumbnail-placeholder"]')),
     };
   });
   return { headers, rows };
