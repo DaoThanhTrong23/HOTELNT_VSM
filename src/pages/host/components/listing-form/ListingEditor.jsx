@@ -86,7 +86,16 @@ const SECONDARY_BUTTON =
   'min-h-[44px] px-5 rounded-lg border border-[#CBD5E1] bg-white text-sm font-medium text-black hover:bg-[#F8F4E8] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 
 const editPathOf = (id) => generatePath(ROUTES.HOST.EDIT_HOTEL, { id: String(id) });
-const sortMedia = (media) => [...(Array.isArray(media) ? media : [])].sort((a, b) => (a.thuTu ?? 0) - (b.thuTu ?? 0));
+const sortMedia = (media) =>
+  [...(Array.isArray(media) ? media : [])]
+    .map((item, idx) => ({
+      ...item,
+      mediaId: item.mediaId ?? item.id ?? item.maHinhAnh ?? `media-${idx}`,
+      type: item.type ?? item.loai ?? (String(item.url || item.duongDan || '').endsWith('.mp4') ? 'VIDEO' : 'IMAGE'),
+      url: item.url ?? item.duongDan ?? item.duongDanAnh ?? item.duongDanTep ?? '',
+      thuTu: item.thuTu ?? item.order ?? idx,
+    }))
+    .sort((a, b) => (a.thuTu ?? 0) - (b.thuTu ?? 0));
 const countMedia = (media, type) => media.filter((item) => item.type === type).length;
 const clampStep = (value) => (Number.isInteger(value) && value >= 1 && value <= STEPS.length ? value : 1);
 
@@ -166,7 +175,7 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       .then((data) => {
         if (controller.signal.aborted) return;
         const formValues = toFormValues(data);
-        const sortedMedia = sortMedia(data?.media);
+        const sortedMedia = sortMedia(data?.media || data?.hinhAnh || data?.danhSachAnh);
         setDetail(data);
         setValues(formValues);
         setBaseline(formValues);

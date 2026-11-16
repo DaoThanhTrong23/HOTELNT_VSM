@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Play, X } from 'lucide-react';
 import { MEDIA_LIMITS } from '../../../../constants/enums';
 import { deleteListingMedia, isCanceled, uploadListingMedia } from '../../api/hostApi';
+import { resolveHotelImageUrl, FALLBACK_HOTEL_IMAGE } from '../../../../utils/formatters';
 
 const MB = 1024 * 1024;
 const RULES = {
@@ -104,9 +105,11 @@ export const MediaStep = ({
   const updateEntry = (localId, patch) =>
     setEntries((prev) => prev.map((entry) => (entry.localId === localId ? { ...entry, ...patch } : entry)));
 
-  const removeEntry = (localId) => {
-    revokePreview(previewsRef.current.get(localId));
-    previewsRef.current.delete(localId);
+  const removeEntry = (localId, keepPreview = false) => {
+    if (!keepPreview) {
+      revokePreview(previewsRef.current.get(localId));
+      previewsRef.current.delete(localId);
+    }
     setEntries((prev) => prev.filter((entry) => entry.localId !== localId));
   };
 
@@ -132,9 +135,14 @@ export const MediaStep = ({
           },
         );
         if (!mountedRef.current) break;
-        removeEntry(entry.localId);
+        const localPreview = previewsRef.current.get(entry.localId) || entry.previewUrl;
+        removeEntry(entry.localId, true);
         uploadedCount += 1;
-        latestRef.current.onUploaded?.(uploaded);
+        const enrichedUploaded = {
+          ...uploaded,
+          localPreviewUrl: localPreview,
+        };
+        latestRef.current.onUploaded?.(enrichedUploaded);
       } catch (err) {
         if (!mountedRef.current) break;
         if (controller.signal.aborted || isCanceled(err)) {
@@ -199,6 +207,9 @@ export const MediaStep = ({
     setDeletingIds((prev) => [...prev, item.mediaId]);
     try {
       const response = await deleteListingMedia(maCSLT, item.mediaId);
+      if (item.localPreviewUrl) {
+        revokePreview(item.localPreviewUrl);
+      }
       onDeleted?.(item.mediaId, response);
     } catch (err) {
       if (err.code === 'MIN_IMAGES_REQUIRED') {
@@ -293,53 +304,70 @@ export const MediaStep = ({
 
         {images.length + localImages.length > 0 ? (
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" aria-label="Danh sách ảnh">
-            {images.map((item, index) => (
-              <li
-                key={item.mediaId}
-                data-testid="server-image"
-                draggable={!readOnly}
-                onDragStart={() => setDragIndex(index)}
-                onDragOver={(event) => {
-                  if (!readOnly) event.preventDefault();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  moveImage(dragIndex, index);
-                  setDragIndex(null);
-                }}
-                className={`group relative aspect-4/3 rounded-lg overflow-hidden bg-[#CBD5E1] ${readOnly ? '' : 'cursor-grab'}`}
-              >
-                <img src={item.url} alt={`Ảnh ${index + 1}`} loading="lazy" className="w-full h-full object-cover" />
-                {index === 0 && (
-                  <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white text-[11px] font-medium text-black">
-                    Ảnh bìa
-                  </span>
-                )}
-                {!readOnly && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={`Xóa ảnh ${index + 1}`}
-                      disabled={deletingIds.includes(item.mediaId)}
-                      onClick={() => deleteServerMedia(item)}
-                      className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-40"
-                    >
-                      <X size={14} />
-                    </button>
-                    {index > 0 && (
+            {images.map((item, index) => {
+              const rawUrl = item.url || item.duongDan || item.duongDanAnh;
+              const imgSrc = resolveHotelImageUrl(rawUrl) || item.localPreviewUrl;
+
+              return (
+                <li
+                  key={item.mediaId}
+                  data-testid="server-image"
+                  draggable={!readOnly}
+                  onDragStart={() => setDragIndex(index)}
+                  onDragOver={(event) => {
+                    if (!readOnly) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveImage(dragIndex, index);
+                    setDragIndex(null);
+                  }}
+                  className={`group relative aspect-4/3 rounded-lg overflow-hidden bg-[#CBD5E1] ${readOnly ? '' : 'cursor-grab'}`}
+                >
+                  <img
+                    src={imgSrc}
+                    alt={`Ảnh ${index + 1}`}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      if (item.localPreviewUrl && e.target.src !== item.localPreviewUrl) {
+                        e.target.src = item.localPreviewUrl;
+                      } else if (FALLBACK_HOTEL_IMAGE && e.target.src !== FALLBACK_HOTEL_IMAGE) {
+                        e.target.src = FALLBACK_HOTEL_IMAGE;
+                      }
+                    }}
+                  />
+                  {index === 0 && (
+                    <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white text-[11px] font-medium text-black">
+                      Ảnh bìa
+                    </span>
+                  )}
+                  {!readOnly && (
+                    <>
                       <button
                         type="button"
-                        onClick={() => moveImage(index, 0)}
-                        aria-label={`Đặt ảnh ${index + 1} làm ảnh bìa`}
-                        className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-black/70 text-[11px] text-white hover:bg-black cursor-pointer md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+                        aria-label={`Xóa ảnh ${index + 1}`}
+                        disabled={deletingIds.includes(item.mediaId)}
+                        onClick={() => deleteServerMedia(item)}
+                        className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-40"
                       >
-                        Đặt làm ảnh bìa
+                        <X size={14} />
                       </button>
-                    )}
-                  </>
-                )}
-              </li>
-            ))}
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => moveImage(index, 0)}
+                          aria-label={`Đặt ảnh ${index + 1} làm ảnh bìa`}
+                          className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-black/70 text-[11px] text-white hover:bg-black cursor-pointer md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+                        >
+                          Đặt làm ảnh bìa
+                        </button>
+                      )}
+                    </>
+                  )}
+                </li>
+              );
+            })}
             {localImages.map((entry) => {
               const failed = entry.status === 'invalid' || entry.status === 'error';
               return (
@@ -393,27 +421,33 @@ export const MediaStep = ({
 
         {videos.length + localVideos.length > 0 ? (
           <ul className="space-y-2" aria-label="Danh sách video">
-            {videos.map((item) => (
-              <li key={item.mediaId} data-testid="server-video" className="flex items-center gap-3 p-3 rounded-lg border border-[#CBD5E1]">
-                <span className="w-9 h-9 rounded-lg border border-[#CBD5E1] flex items-center justify-center shrink-0">
-                  <Play size={14} />
-                </span>
-                <a href={item.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-black truncate hover:underline">
-                  {`${fileNameFromUrl(item.url)} · ${formatMegabytes(item.kichThuoc)}`}
-                </a>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    aria-label={`Xóa video ${fileNameFromUrl(item.url)}`}
-                    disabled={deletingIds.includes(item.mediaId)}
-                    onClick={() => deleteServerMedia(item)}
-                    className="px-3 py-1.5 min-h-[36px] rounded-lg border border-[#CBD5E1] text-xs hover:bg-[#F8F4E8] cursor-pointer disabled:opacity-40"
-                  >
-                    Xóa
-                  </button>
-                )}
-              </li>
-            ))}
+            {videos.map((item) => {
+              const rawVideoUrl = item.url || item.duongDan || item.duongDanTep;
+              const videoSrc = resolveHotelImageUrl(rawVideoUrl) || item.localPreviewUrl;
+              const fileName = fileNameFromUrl(videoSrc || item.url);
+
+              return (
+                <li key={item.mediaId} data-testid="server-video" className="flex items-center gap-3 p-3 rounded-lg border border-[#CBD5E1]">
+                  <span className="w-9 h-9 rounded-lg border border-[#CBD5E1] flex items-center justify-center shrink-0">
+                    <Play size={14} />
+                  </span>
+                  <a href={videoSrc} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-black truncate hover:underline">
+                    {`${fileName} · ${formatMegabytes(item.kichThuoc)}`}
+                  </a>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      aria-label={`Xóa video ${fileName}`}
+                      disabled={deletingIds.includes(item.mediaId)}
+                      onClick={() => deleteServerMedia(item)}
+                      className="px-3 py-1.5 min-h-[36px] rounded-lg border border-[#CBD5E1] text-xs hover:bg-[#F8F4E8] cursor-pointer disabled:opacity-40"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </li>
+              );
+            })}
             {localVideos.map((entry) => {
               const failed = entry.status === 'invalid' || entry.status === 'error';
               return (
