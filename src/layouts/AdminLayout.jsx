@@ -96,7 +96,7 @@ const MobileAdminTabBar = () => {
   return (
     <nav
       aria-label="Điều hướng quản trị"
-      className="md:hidden shrink-0 grid grid-cols-3 items-center bg-white border-t border-[#CBD5E1] px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] z-40"
+      className="md:hidden shrink-0 grid grid-cols-3 items-center bg-white border-t border-[#CBD5E1] px-2 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] z-40"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -108,9 +108,9 @@ const MobileAdminTabBar = () => {
               <Link
                 to={tab.to}
                 aria-current="page"
-                className="bg-black text-white px-4 py-2 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold shadow-xs transition"
+                className="bg-black text-white px-4.5 py-2.5 rounded-2xl flex items-center justify-center gap-2 text-[13px] font-bold shadow-xs transition"
               >
-                <Icon size={16} />
+                <Icon size={18} />
                 <span>{tab.label}</span>
               </Link>
             ) : (
