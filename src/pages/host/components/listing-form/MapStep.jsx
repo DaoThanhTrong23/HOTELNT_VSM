@@ -264,7 +264,7 @@ export const MapStep = ({ latitude, longitude, error, bounds, readOnly = false, 
         </p>
       )}
       {isValid && (
-        <p className="text-xs text-[#15803D] flex items-center gap-1.5">
+        <p id="listing-location-valid" className="text-xs text-[#15803D] flex items-center gap-1.5">
           <CheckCircle2 size={14} />
           <span>Vị trí hợp lệ — nằm trong khu vực Nha Trang</span>
         </p>
