@@ -1,6 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
 
 @theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Inter', monospace;
+  --font-serif: 'Inter', serif;
+
   --color-success: #15803D;
   --color-success-bg: #DCFCE7;
   --color-error: #DC2626;
@@ -16,13 +21,41 @@
 }
 
 :root {
-  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* =====================================================================
+   ĐỒNG BỘ 100% TOÀN BỘ PHẦN TỬ TRONG DỰ ÁN SỬ DỤNG CHUNG 1 FONT DUY NHẤT: INTER
+   Áp dụng bao phủ mọi thẻ, inputs, buttons, selects, textareas, typography
+===================================================================== */
+*,
+*::before,
+*::after,
+html,
+body,
+input,
+button,
+select,
+textarea,
+optgroup,
+option,
+h1, h2, h3, h4, h5, h6,
+p, span, a, label, table, th, td {
+  font-family: var(--font-family-base) !important;
 }
 
 body {
   margin: 0;
-  font-family: var(--font-inter);
   background-color: #F8F4E8;
   color: #000000;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Trang có thanh liên hệ cố định dưới đáy (mobile/tablet): đẩy nút Chatbot lên trên thanh này */
+@media (max-width: 1023px) {
+  body.has-mobile-bottom-bar .ai-chatbot-launcher {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
 }

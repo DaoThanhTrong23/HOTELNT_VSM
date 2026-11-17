@@ -8,13 +8,15 @@ export const HOTEL_STATUS = {
   PENDING: 'PENDING',     // Chờ duyệt
   APPROVED: 'APPROVED',   // Đã duyệt (Đang live)
   REJECTED: 'REJECTED',   // Bị từ chối
+  HIDDEN: 'HIDDEN',       // Ẩn
 };
 
 export const HOTEL_STATUS_LABELS = {
   [HOTEL_STATUS.DRAFT]: 'Bản nháp',
   [HOTEL_STATUS.PENDING]: 'Chờ duyệt',
   [HOTEL_STATUS.APPROVED]: 'Đã duyệt',
-  [HOTEL_STATUS.REJECTED]: 'Từ chối duyệt',
+  [HOTEL_STATUS.REJECTED]: 'Bị từ chối',
+  [HOTEL_STATUS.HIDDEN]: 'Ẩn',
 };
 
 // 2. Phân quyền tài khoản (User Roles)

@@ -1,13 +1,13 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from '../constants/routes';
 import { USER_ROLES } from '../constants/enums';
+import { ProtectedRoute } from './ProtectedRoute';
 
 // LAYOUTS
 import { TouristLayout } from '../layouts/TouristLayout';
 import { HostLayout } from '../layouts/HostLayout';
 import { AdminLayout } from '../layouts/AdminLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
-import { ProtectedRoute } from './ProtectedRoute';
 
 // PAGES - TOURIST
 import { HomePage } from '../pages/tourist/HomePage';
@@ -52,8 +52,10 @@ export const AppRoutes = () => {
         <Route path={ROUTES.REGISTER} element={<HostRegisterPage />} />
         <Route path={ROUTES.VERIFY_OTP} element={<VerifyOtpPage />} />
         <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
-        <Route path={ROUTES.ADMIN.LOGIN} element={<AdminLoginPage />} />
       </Route>
+
+      {/* 2.1. ADMIN LOGIN - GIAO DIỆN 2 CỘT CHUẨN FIGMA FRAME 14 */}
+      <Route path={ROUTES.ADMIN.LOGIN} element={<AdminLoginPage />} />
 
       {/* 3. HOST ROUTES (PROTECTED) */}
       <Route element={<ProtectedRoute allowedRoles={[USER_ROLES.HOST, USER_ROLES.ADMIN]} />}>
@@ -69,6 +71,9 @@ export const AppRoutes = () => {
       {/* 4. ADMIN ROUTES (PROTECTED) */}
       <Route element={<ProtectedRoute allowedRoles={[USER_ROLES.ADMIN]} />}>
         <Route element={<AdminLayout />}>
+          {/* Mặc định chuyển hướng vào trang Kiểm duyệt */}
+          <Route path="/admin" element={<Navigate to={ROUTES.ADMIN.MODERATION} replace />} />
+          {/* Giữ nguyên route Dashboard (ẩn trên menu sidebar, không xóa code) */}
           <Route path={ROUTES.ADMIN.DASHBOARD} element={<AdminDashboardPage />} />
           <Route path={ROUTES.ADMIN.MODERATION} element={<HotelModerationPage />} />
           <Route path={ROUTES.ADMIN.HOST_MANAGEMENT} element={<HostManagementPage />} />
@@ -76,7 +81,7 @@ export const AppRoutes = () => {
         </Route>
       </Route>
 
-      {/* 5. 404 CATCH-ALL */}
+      {/* 5. 404 NOT FOUND */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

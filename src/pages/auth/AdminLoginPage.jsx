@@ -1,29 +1,39 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ShieldAlert,
-  Mail,
-  Lock,
+  Check,
   Eye,
   EyeOff,
   AlertCircle,
-  ArrowRight,
   Clock,
-  ShieldCheck,
   ArrowLeft,
-  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { ROUTES } from '../../constants/routes';
 import { USER_ROLES } from '../../constants/enums';
 import { authService } from '../../services/authService';
+import { SITE_CONFIG } from '../../constants/siteConfig';
+import { BrandLogo } from '../../components/common/BrandLogo';
 
+const CURRENT_YEAR = new Date().getFullYear();
+
+/**
+ * Trang Đăng nhập Quản trị viên (Admin Portal) theo chuẩn Figma Design (Frames 14, 14.1, 14.2):
+ * - Desktop (Frame 14, 14.1): Bố cục 2 cột cân xứng trên nền kem #F8F4E8
+ *   + Cột trái: Card trắng giới thiệu hệ thống, checklist 3 tính năng quản trị
+ *   + Cột phải: Form đăng nhập Admin Portal
+ * - Mobile (Frame 14.2):
+ *   + Phía trên: Tiêu đề gọn gàng kèm 3 badge chức năng
+ *   + Phía dưới: Thẻ đăng nhập (Login Card) màu trắng nằm chính giữa (Center) màn hình
+ * - Xử lý thông báo lỗi chuẩn Figma 14.1 (Banner lỗi đỏ phía trên form + viền đỏ ô mật khẩu)
+ * - Cơ chế khóa tạm 15 phút khi nhập sai 5 lần (FR-19)
+ */
 export const AdminLoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null); // { code, message }
+  const [error, setError] = useState(null); // { code, message, title }
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -77,13 +87,15 @@ export const AdminLoginPage = () => {
     if (!cleanEmail) {
       setError({
         code: 'VALIDATION_ERROR',
-        message: 'Vui lòng nhập Email quản trị viên.',
+        title: 'Thông tin không chính xác',
+        message: 'Vui lòng nhập Email hoặc Tài khoản quản trị.',
       });
       return;
     }
     if (!password) {
       setError({
         code: 'VALIDATION_ERROR',
+        title: 'Thông tin không chính xác',
         message: 'Vui lòng nhập Mật khẩu quản trị.',
       });
       return;
@@ -102,6 +114,7 @@ export const AdminLoginPage = () => {
             data: {
               error: {
                 code: 'ACCOUNT_TEMP_LOCKED',
+                title: 'Tài khoản bị tạm khóa 15 phút',
                 message:
                   'Tài khoản quản trị viên tạm thời bị khóa do nhập sai mật khẩu quá 5 lần. Vui lòng thử lại sau 15 phút.',
                 details: { retryAfter: 900 },
@@ -119,38 +132,40 @@ export const AdminLoginPage = () => {
             data: {
               error: {
                 code: 'AUTH_INVALID_CREDENTIALS',
-                message: 'Sai email hoặc mật khẩu quản trị viên.',
+                title: 'Thông tin không chính xác',
+                message: 'Sai email hoặc mật khẩu quản trị viên. Vui lòng kiểm tra lại.',
               },
             },
           },
         };
       }
 
-      // 2. Gọi API đăng nhập Admin nội bộ (POST /auth/admin/signin)
+      // 2. Gọi API đăng nhập Admin nội bộ (POST /auth/admin/signin theo API_DESIGN)
       let resData = null;
-      if (authService?.adminLogin) {
-        const res = await authService.adminLogin({
+      const adminSigninFn = authService?.adminSignin || authService?.adminLogin;
+      if (adminSigninFn) {
+        const res = await adminSigninFn({
           email: cleanEmail,
           matKhau: password,
-          password: password,
         });
         resData = res?.data || res;
       }
 
       // 3. Đăng nhập trực tiếp (Không qua OTP) -> Lưu Token và chuyển hướng thẳng vào Dashboard
       const token = resData?.accessToken || 'jwt_admin_access_token_' + Date.now();
-      const adminInfo = resData?.userInfo || {
-        id: 'admin-01',
-        hoTen: 'Quản Trị Viên Hệ Thống',
+      const role = resData?.userInfo?.role || resData?.userInfo?.vaiTro || USER_ROLES.ADMIN;
+      const adminInfo = {
+        id: resData?.userInfo?.id || 'admin-01',
+        name: resData?.userInfo?.hoTen || resData?.userInfo?.name || 'Quản Trị Viên Hệ Thống',
+        hoTen: resData?.userInfo?.hoTen || resData?.userInfo?.name || 'Quản Trị Viên Hệ Thống',
         email: cleanEmail,
-        vaiTro: USER_ROLES.ADMIN,
+        role: role,
+        vaiTro: role,
       };
 
-      // Reset các lượt thử sai
       setFailedAttempts(0);
-
       login(adminInfo, token);
-      navigate(ROUTES.ADMIN.DASHBOARD);
+      navigate(ROUTES.ADMIN.MODERATION);
     } catch (apiErr) {
       const errResponse = apiErr?.response?.data?.error;
       const statusCode = apiErr?.response?.status;
@@ -161,7 +176,7 @@ export const AdminLoginPage = () => {
         const retryAfter =
           apiErr?.response?.data?.details?.retryAfter ||
           errResponse?.details?.retryAfter ||
-          900; // 15 phút
+          900;
 
         setLockoutSeconds(retryAfter);
         localStorage.setItem(
@@ -171,6 +186,7 @@ export const AdminLoginPage = () => {
 
         setError({
           code: 'ACCOUNT_TEMP_LOCKED',
+          title: 'Tài khoản bị tạm khóa 15 phút',
           message:
             errResponse?.message ||
             'Tài khoản quản trị tạm thời bị khóa do nhập sai mật khẩu quá 5 lần liên tiếp. Vui lòng thử lại sau 15 phút.',
@@ -193,13 +209,15 @@ export const AdminLoginPage = () => {
           );
           setError({
             code: 'ACCOUNT_TEMP_LOCKED',
+            title: 'Tài khoản bị tạm khóa 15 phút',
             message:
               'Tài khoản quản trị tạm thời bị khóa do nhập sai mật khẩu quá 5 lần liên tiếp. Vui lòng thử lại sau 15 phút.',
           });
         } else {
           setError({
             code: 'AUTH_INVALID_CREDENTIALS',
-            message: `Sai email hoặc mật khẩu quản trị viên. Bạn còn ${remaining} lần thử trước khi tài khoản bị khóa tạm 15 phút.`,
+            title: 'Thông tin không chính xác',
+            message: `Mật khẩu không chính xác. Bạn còn ${remaining} lần thử trước khi tài khoản bị khóa tạm 15 phút.`,
           });
         }
         setLoading(false);
@@ -210,14 +228,14 @@ export const AdminLoginPage = () => {
       if (statusCode === 429) {
         setError({
           code: 'RATE_LIMITED',
-          message: 'Bạn thao tác quá nhanh. Vui lòng thử lại sau giây lát.',
+          title: 'Thao tác quá nhanh',
+          message: 'Vui lòng thử lại sau giây lát.',
         });
         setLoading(false);
         return;
       }
 
-      // Fallback môi trường dev UI thử nghiệm khi chưa chạy backend API:
-      // Đăng nhập trực tiếp thành công vào Admin Dashboard
+      // Fallback môi trường demo/dev khi chưa bật Backend API
       const fallbackToken = 'jwt_mock_admin_token_' + Date.now();
       login(
         {
@@ -228,191 +246,270 @@ export const AdminLoginPage = () => {
         },
         fallbackToken
       );
-      navigate(ROUTES.ADMIN.DASHBOARD);
+      navigate(ROUTES.ADMIN.MODERATION);
     } finally {
       setLoading(false);
     }
   };
 
+  const hasPasswordError = error?.code === 'AUTH_INVALID_CREDENTIALS' || error?.code === 'ACCOUNT_TEMP_LOCKED';
+
   return (
-    <div className="w-full space-y-6">
-      {/* HEADER PHONG CÁCH BẢO MẬT ADMIN NỘI BỘ */}
-      <div className="text-center space-y-2">
-        <div className="relative w-14 h-14 rounded-2xl bg-black text-white flex items-center justify-center mx-auto shadow-md ring-4 ring-[#D97706]/20">
-          <ShieldAlert size={28} className="text-[#D97706]" />
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#15803D] rounded-full border-2 border-white" />
+    <div className="min-h-screen bg-[#F8F4E8] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-10">
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+        {/* Nút quay lại trang chủ */}
+        <div className="w-full max-w-[380px] md:max-w-none mb-3">
+          <Link
+            to={ROUTES.HOME}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-black transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Quay lại trang chủ
+          </Link>
         </div>
 
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 text-[#64748B] text-[11px] font-semibold tracking-wider uppercase mb-1">
-            <KeyRound size={11} className="text-[#D97706]" />
-            Cổng Quản Trị Nội Bộ
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight text-black">Đăng Nhập Quản Trị</h2>
-          <p className="text-xs text-[#64748B] max-w-xs mx-auto mt-1">
-            Khu vực kiểm duyệt nội dung cơ sở lưu trú và cấu hình hệ thống HOTELNT
+        {/* =====================================================
+            MOBILE INTRO HEADER (Chỉ hiện trên mobile < md theo Frame 14.2)
+        ===================================================== */}
+        <div className="md:hidden w-full max-w-[380px] mx-auto mb-4 space-y-2">
+          <p className="text-[10px] font-bold text-[#64748B] tracking-wider uppercase">
+            HOTEL NHA TRANG
           </p>
+          <h1 className="text-lg font-black text-black leading-tight tracking-tight">
+            Quản lý hệ thống lưu trữ một cách hiệu quả
+          </h1>
+          <p className="text-xs text-[#64748B] leading-relaxed">
+            Nền tảng quản trị dành cho đội ngũ Hotel Nha Trang
+          </p>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#CBD5E1] bg-white text-[10px] font-medium text-black shadow-2xs">
+              Quản lý tài khoản Host
+            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#CBD5E1] bg-white text-[10px] font-medium text-black shadow-2xs">
+              Kiểm duyệt cơ sở lưu trú
+            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#CBD5E1] bg-white text-[10px] font-medium text-black shadow-2xs">
+              Cấu hình SEO & AI
+            </span>
+          </div>
         </div>
-      </div>
 
-      {/* CẢNH BÁO TẠM KHÓA TÀI KHOẢN (ACCOUNT_TEMP_LOCKED) */}
-      {isLocked && (
-        <div
-          role="alert"
-          className="p-4 rounded-xl bg-[#F4A9A9]/50 border-2 border-[#DC2626] text-[#DC2626] text-xs space-y-2 shadow-sm animate-in fade-in"
-        >
-          <div className="flex items-start gap-2.5">
-            <ShieldAlert size={20} className="flex-shrink-0 mt-0.5 text-[#DC2626]" />
-            <div className="space-y-1">
-              <p className="font-bold text-sm text-[#DC2626]">Tài khoản Admin tạm thời bị khóa!</p>
-              <p className="leading-relaxed text-[11px] text-neutral-800">
-                Phát hiện quá 5 lần đăng nhập không thành công. Nhằm bảo vệ hệ thống quản trị, cổng
-                đăng nhập tạm thời bị đóng trong 15 phút.
+        {/* =====================================================
+            DESKTOP GRID 2 CỘT / MOBILE THẺ ĐĂNG NHẬP NẰM CENTER
+        ===================================================== */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 items-stretch">
+          {/* =====================================================
+              CỘT TRÁI: CARD TRẮNG GIỚI THIỆU (Desktop md:flex)
+          ===================================================== */}
+          <div className="hidden md:flex bg-white rounded-3xl border border-[#CBD5E1] p-6 sm:p-8 lg:p-10 shadow-xs flex-col justify-between">
+            <div>
+              <div className="mb-5">
+                <BrandLogo size="md" />
+              </div>
+
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-black leading-snug tracking-tight mb-3">
+                Quản lý hệ thống<br className="hidden sm:inline" /> lưu trú một cách<br className="hidden sm:inline" /> hiệu quả
+              </h1>
+
+              <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed mb-6">
+                Nền tảng quản trị dành cho đội ngũ {SITE_CONFIG.brand.name}
               </p>
+
+              {/* CHECKLIST TÍNH NĂNG */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-black">
+                  <span className="flex items-center justify-center w-4 h-4 text-black shrink-0">
+                    <Check size={16} strokeWidth={2.5} />
+                  </span>
+                  <span>Quản lý tài khoản Host</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-black">
+                  <span className="flex items-center justify-center w-4 h-4 text-black shrink-0">
+                    <Check size={16} strokeWidth={2.5} />
+                  </span>
+                  <span>Kiểm duyệt cơ sở lưu trú</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-black">
+                  <span className="flex items-center justify-center w-4 h-4 text-black shrink-0">
+                    <Check size={16} strokeWidth={2.5} />
+                  </span>
+                  <span>Cấu hình SEO & AI</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Chân card trái */}
+            <div className="pt-8 text-[11px] text-[#64748B]">
+              Hệ thống bảo mật nội bộ © {CURRENT_YEAR} {SITE_CONFIG.brand.name}
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-[#DC2626]/20 text-xs">
-            <span className="flex items-center gap-1.5 font-medium text-neutral-700">
-              <Clock size={14} className="text-[#DC2626]" />
-              Thời gian mở khóa sau:
-            </span>
-            <span className="font-mono text-base font-extrabold text-[#DC2626] tracking-wider">
-              {formattedCountdown}
-            </span>
-          </div>
-        </div>
-      )}
+          {/* =====================================================
+              CỘT PHẢI / THẺ ĐĂNG NHẬP: LUÔN NẰM CENTER TRÊN MOBILE
+          ===================================================== */}
+          <div className="flex items-center justify-center w-full">
+            <div className="w-full max-w-[380px] md:max-w-md mx-auto bg-white md:bg-transparent rounded-3xl md:rounded-none border md:border-0 border-[#CBD5E1] p-6 sm:p-8 md:p-4 lg:p-6 shadow-sm md:shadow-none">
+              <p className="text-[11px] sm:text-xs font-bold text-black tracking-wider uppercase mb-1">
+                ADMIN PORTAL
+              </p>
 
-      {/* THÔNG BÁO LỖI SAI THÔNG TIN */}
-      {!isLocked && error && (
-        <div
-          role="alert"
-          className="p-3.5 rounded-xl bg-[#F4A9A9]/50 border border-[#DC2626] text-[#DC2626] text-xs flex items-start gap-2.5 shadow-sm"
-        >
-          <AlertCircle size={18} className="flex-shrink-0 mt-0.5 text-[#DC2626]" />
-          <div className="space-y-1">
-            <p className="font-semibold leading-relaxed">{error.message}</p>
-            <p className="text-[11px] text-neutral-700">
-              Tài khoản quản trị do hệ thống cấp sẵn. Nếu bạn quên thông tin truy cập, vui lòng liên
-              hệ Trưởng nhóm kỹ thuật.
-            </p>
-          </div>
-        </div>
-      )}
+              <h2 className="text-xl sm:text-2xl font-black text-black tracking-tight mb-1">
+                Chào mừng trở lại !!!
+              </h2>
 
-      {/* FORM ĐĂNG NHẬP ADMIN (CHỈ GỒM EMAIL VÀ MẬT KHẨU) */}
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        {/* EMAIL QUẢN TRỊ */}
-        <div className="space-y-1">
-          <label htmlFor="adminEmail" className="text-xs font-semibold text-black">
-            Email Quản trị viên
-          </label>
-          <div className="relative flex items-center">
-            <Mail className="absolute left-3.5 text-[#64748B]" size={16} />
-            <input
-              id="adminEmail"
-              type="email"
-              required
-              disabled={isLocked || loading}
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error && error.code !== 'ACCOUNT_TEMP_LOCKED') setError(null);
-              }}
-              placeholder="admin@hotelnt.com"
-              className={`w-full pl-10 pr-4 py-2.5 bg-[#F8F4E8] rounded-xl text-sm transition-all focus:outline-none focus:bg-white ${
-                isLocked
-                  ? 'bg-neutral-100 border-[#CBD5E1] text-[#64748B] cursor-not-allowed'
-                  : 'border border-[#CBD5E1] focus:border-black text-black'
-              }`}
-            />
-          </div>
-        </div>
+              <p className="text-xs sm:text-sm text-[#64748B] mb-5">
+                Đăng nhập bằng tài khoản Admin để tiếp tục
+              </p>
 
-        {/* MẬT KHẨU QUẢN TRỊ */}
-        <div className="space-y-1">
-          <label htmlFor="adminPassword" className="text-xs font-semibold text-black">
-            Mật khẩu quản trị
-          </label>
-          <div className="relative flex items-center">
-            <Lock className="absolute left-3.5 text-[#64748B]" size={16} />
-            <input
-              id="adminPassword"
-              type={showPassword ? 'text' : 'password'}
-              required
-              disabled={isLocked || loading}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error && error.code !== 'ACCOUNT_TEMP_LOCKED') setError(null);
-              }}
-              placeholder="••••••••"
-              className={`w-full pl-10 pr-11 py-2.5 bg-[#F8F4E8] rounded-xl text-sm transition-all focus:outline-none focus:bg-white ${
-                isLocked
-                  ? 'bg-neutral-100 border-[#CBD5E1] text-[#64748B] cursor-not-allowed'
-                  : 'border border-[#CBD5E1] focus:border-black text-black'
-              }`}
-            />
-            <button
-              type="button"
-              disabled={isLocked}
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 text-[#64748B] hover:text-black cursor-pointer p-1 disabled:opacity-40"
-              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-        </div>
+              {/* THÔNG BÁO LỖI CHUẨN FIGMA 14.1 (BANNER ĐỎ) */}
+              {error && (
+                <div
+                  id="admin-login-error-banner"
+                  role="alert"
+                  className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-600 animate-in fade-in"
+                >
+                  <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-red-700">
+                      {isLocked ? 'Tài khoản bị tạm khóa 15 phút' : (error.title || 'Thông tin không chính xác')}
+                    </p>
+                    <p className="text-red-600 leading-relaxed">
+                      {error.message}
+                    </p>
+                    {isLocked && (
+                      <p className="font-semibold text-red-700 mt-1 flex items-center gap-1">
+                        <Clock size={12} />
+                        Thử lại sau: {formattedCountdown}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
-        {/* GHI CHÚ BẢO MẬT NỘI BỘ */}
-        <div className="p-2.5 rounded-lg bg-neutral-50 border border-[#CBD5E1]/60 flex items-center gap-2 text-[11px] text-[#64748B]">
-          <ShieldCheck size={14} className="text-[#15803D] flex-shrink-0" />
-          <span>Phiên đăng nhập Admin được xác thực trực tiếp và mã hóa bảo mật.</span>
-        </div>
+              {/* FORM NHẬP LIỆU */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email / Tài khoản */}
+                <div>
+                  <label
+                    htmlFor="admin-email-input"
+                    className="block text-xs font-bold text-black mb-1.5"
+                  >
+                    Email/Tài khoản
+                  </label>
+                  <input
+                    id="admin-email-input"
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Nhập email hoặc tài khoản"
+                    disabled={isLocked || loading}
+                    className="
+                      w-full bg-white
+                      border border-[#CBD5E1]
+                      focus:border-black
+                      rounded-lg
+                      px-3.5 py-2.5
+                      text-sm text-black
+                      placeholder-[#64748B]
+                      outline-none
+                      transition-colors
+                      shadow-xs
+                      disabled:bg-gray-100 disabled:cursor-not-allowed
+                    "
+                    autoComplete="username"
+                  />
+                </div>
 
-        {/* NÚT ĐĂNG NHẬP */}
-        <button
-          type="submit"
-          disabled={loading || isLocked}
-          className="w-full mt-2 py-3 rounded-xl bg-black text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 disabled:opacity-50 transition-all cursor-pointer shadow-md active:scale-[0.99]"
-        >
-          {loading ? (
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Đang kiểm tra quyền Admin...</span>
+                {/* Mật khẩu */}
+                <div>
+                  <label
+                    htmlFor="admin-password-input"
+                    className="block text-xs font-bold text-black mb-1.5"
+                  >
+                    Mật khẩu
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="admin-password-input"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu"
+                      disabled={isLocked || loading}
+                      className={`
+                        w-full bg-white
+                        border ${hasPasswordError ? 'border-red-500 bg-red-50/20' : 'border-[#CBD5E1]'}
+                        focus:border-black
+                        rounded-lg
+                        px-3.5 py-2.5 pr-10
+                        text-sm text-black
+                        placeholder-[#64748B]
+                        outline-none
+                        transition-colors
+                        shadow-xs
+                        disabled:bg-gray-100 disabled:cursor-not-allowed
+                      `}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      id="toggle-admin-password-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-[#64748B] hover:text-black cursor-pointer transition-colors"
+                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+
+                  {/* Lỗi riêng mật khẩu (chuẩn Figma 14.1 chữ đỏ dưới input) */}
+                  {hasPasswordError && !isLocked && (
+                    <p id="admin-password-error-text" className="text-xs text-red-500 mt-1 font-medium">
+                      Mật khẩu không chính xác. Vui lòng thử lại.
+                    </p>
+                  )}
+                </div>
+
+                {/* Quên mật khẩu link */}
+                <div className="text-right pt-0.5">
+                  <Link
+                    to={ROUTES.FORGOT_PASSWORD}
+                    className="text-xs font-semibold text-[#64748B] hover:text-black transition-colors"
+                  >
+                    Quên mật khẩu?
+                  </Link>
+                </div>
+
+                {/* Nút Đăng nhập */}
+                <button
+                  id="admin-login-submit-btn"
+                  type="submit"
+                  disabled={loading || isLocked}
+                  className="
+                    w-full
+                    bg-black
+                    text-white
+                    font-bold
+                    text-sm
+                    py-2.5
+                    rounded-lg
+                    hover:bg-neutral-800
+                    active:scale-[0.99]
+                    transition-all
+                    cursor-pointer
+                    shadow-xs
+                    disabled:opacity-50
+                    disabled:cursor-not-allowed
+                  "
+                >
+                  {loading ? 'Đang xác thực...' : 'Đăng nhập'}
+                </button>
+              </form>
             </div>
-          ) : isLocked ? (
-            <div className="flex items-center gap-2">
-              <Clock size={16} />
-              <span>Cổng tạm khóa ({formattedCountdown})</span>
-            </div>
-          ) : (
-            <>
-              <span>Đăng nhập vào Dashboard Quản trị</span>
-              <ArrowRight size={16} />
-            </>
-          )}
-        </button>
-      </form>
-
-      {/* LINK QUAY LẠI TRANG CHỦ / PORTAL HOST */}
-      <div className="pt-4 border-t border-[#CBD5E1] flex items-center justify-between text-xs text-[#64748B]">
-        <Link
-          to={ROUTES.LOGIN}
-          className="inline-flex items-center gap-1.5 hover:text-black font-semibold transition-colors"
-        >
-          <ArrowLeft size={14} />
-          <span>Về Cổng Chủ Cơ Sở (Host)</span>
-        </Link>
-
-        <Link
-          to={ROUTES.HOME}
-          className="hover:text-black font-semibold transition-colors"
-        >
-          Về Trang chủ
-        </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

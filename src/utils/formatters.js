@@ -46,3 +46,29 @@ export const isValidEmail = (email) => {
 export const isStrongPassword = (password) => {
   return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(password);
 };
+
+// Ảnh khách sạn dự phòng chất lượng cao (Nha Trang Unsplash) khi máy chủ chưa có file ảnh vật lý
+export const DEFAULT_HOTEL_IMAGES = [
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=1200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1200&auto=format&fit=crop&q=80',
+];
+
+export const FALLBACK_HOTEL_IMAGE = DEFAULT_HOTEL_IMAGES[0];
+
+// Xử lý link ảnh từ Backend API: Lấy 100% từ URL của Backend, không thay thế bằng ảnh FE
+export const resolveHotelImageUrl = (url) => {
+  if (!url) return '';
+  if (typeof url !== 'string') return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  // Gắn địa chỉ Backend cho các đường dẫn relative trả về từ BE. Giữ cả /api vì BE phục vụ file ở <base>/api/uploads/...
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  const cleanPath = url.startsWith('/') ? url : '/' + url;
+  return apiBase + cleanPath;
+};
