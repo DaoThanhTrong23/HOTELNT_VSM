@@ -30,6 +30,7 @@ export const SearchResultsPage = () => {
     const raw = searchParams.get('amenities');
     return raw ? raw.split(',').filter(Boolean) : [];
   }, [searchParams]);
+  const distanceParam = searchParams.get('distance') || '';
   const sortBy = searchParams.get('sortBy') || 'price_asc';
 
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,7 @@ export const SearchResultsPage = () => {
         minPrice: minPriceParam,
         maxPrice: maxPriceParam,
         amenities: amenitiesParam,
+        distance: distanceParam,
         sortBy,
       });
       setHotels(filtered);
@@ -57,7 +59,7 @@ export const SearchResultsPage = () => {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [keyword, loaiHinhParam, minPriceParam, maxPriceParam, amenitiesParam, sortBy]);
+  }, [keyword, loaiHinhParam, minPriceParam, maxPriceParam, amenitiesParam, distanceParam, sortBy]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleOpenFilter = useCallback(() => {
@@ -88,7 +90,8 @@ export const SearchResultsPage = () => {
     (loaiHinhParam !== 'Tất cả' ? 1 : 0) +
     amenitiesParam.length +
     (minPriceParam > PRICE_LIMITS.MIN_VND ? 1 : 0) +
-    (maxPriceParam < PRICE_LIMITS.MAX_VND ? 1 : 0);
+    (maxPriceParam < PRICE_LIMITS.MAX_VND ? 1 : 0) +
+    (distanceParam ? 1 : 0);
 
   // Phân trang
   const pagedHotels = hotels.slice((page - 1) * SEARCH_PAGE_SIZE, page * SEARCH_PAGE_SIZE);
