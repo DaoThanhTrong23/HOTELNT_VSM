@@ -815,7 +815,7 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
             {actionBar.buttons.map((button) => (
               <button
                 key={button.key}
-                id={button.key === 'submit' ? 'listing-submit-btn' : undefined}
+                id={`listing-${button.key}-btn`}
                 type="button"
                 onClick={actionHandlers[button.key]}
                 disabled={button.disabled}
