@@ -87,6 +87,7 @@ export const ConfirmDialog = ({
     >
       <div
         ref={dialogRef}
+        id="confirm-dialog-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -126,6 +127,7 @@ export const ConfirmDialog = ({
         <div className={`mt-5 gap-2 ${isMobile ? 'grid grid-cols-2' : 'flex justify-end'}`}>
           <button
             ref={cancelRef}
+            id="confirm-dialog-cancel"
             type="button"
             onClick={onCancel}
             disabled={busy}
@@ -134,6 +136,7 @@ export const ConfirmDialog = ({
             {cancelLabel}
           </button>
           <button
+            id="confirm-dialog-confirm"
             type="button"
             onClick={onConfirm}
             disabled={busy}
