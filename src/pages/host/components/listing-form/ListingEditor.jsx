@@ -290,6 +290,16 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
 
   const goToStep = (target) => {
     if (!listingId && target > 1) return;
+    if (target === 4) {
+      const currentImages = Math.max(mediaCounts?.soAnh ?? 0, countMedia(media, 'IMAGE'));
+      if (currentImages < 3) {
+        showToast({
+          type: 'error',
+          message: `Vui lòng tải lên tối thiểu 3 ảnh để tiếp tục sang Bước 4 (hiện có ${currentImages}/3 ảnh).`,
+        });
+        return;
+      }
+    }
     setStep(target);
     onStepChange?.(target);
   };
@@ -679,11 +689,25 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       );
     }
     if (step === 3) {
+      const currentImages = Math.max(mediaCounts?.soAnh ?? 0, countMedia(media, 'IMAGE'));
+      const hasEnoughImages = currentImages >= 3;
       return (
-        <div className="pt-5">
-          <button type="button" onClick={() => goToStep(4)} className={SECONDARY_BUTTON}>
-            Tiếp tục
-          </button>
+        <div className="pt-5 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <button
+              type="button"
+              onClick={() => goToStep(4)}
+              disabled={!hasEnoughImages}
+              className={`${SECONDARY_BUTTON} ${!hasEnoughImages ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Tiếp tục
+            </button>
+            {!hasEnoughImages && (
+              <p className="text-xs text-[#DC2626]">
+                Cần tải lên tối thiểu 3 ảnh để tiếp tục sang Bước 4 (hiện có {currentImages}/3 ảnh).
+              </p>
+            )}
+          </div>
         </div>
       );
     }
