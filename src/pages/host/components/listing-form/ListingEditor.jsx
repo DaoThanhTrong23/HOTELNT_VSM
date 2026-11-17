@@ -48,7 +48,7 @@ import {
   validateStep,
 } from './listingFormModel';
 
-const ACCESS_ERROR_CODES = ['NOT_OWNER', 'LISTING_NOT_FOUND', 'NOT_FOUND'];
+const ACCESS_ERROR_CODES = ['NOT_OWNER', 'FORBIDDEN_ROLE', 'FORBIDDEN', 'LISTING_NOT_FOUND', 'NOT_FOUND'];
 const SYSTEM_ERROR_CODES = ['NETWORK_ERROR', 'INTERNAL_ERROR', 'TIMEOUT'];
 const SAVE_SYSTEM_ERROR = 'Không thể lưu thông tin cơ sở lưu trú. Vui lòng kiểm tra kết nối và thử lại.';
 const SUBMITTED_TOAST = {
@@ -588,7 +588,12 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
   };
 
   if (accessError) {
-    return <ListingAccessState variant={accessError.code === 'NOT_OWNER' ? 'forbidden' : 'not-found'} />;
+    const isForbidden =
+      accessError.code === 'NOT_OWNER' ||
+      accessError.code === 'FORBIDDEN_ROLE' ||
+      accessError.code === 'FORBIDDEN' ||
+      accessError.status === 403;
+    return <ListingAccessState variant={isForbidden ? 'forbidden' : 'not-found'} />;
   }
 
   const waitingForDetail = Boolean(listingId) && !detail && !createdHere;
