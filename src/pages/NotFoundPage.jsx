@@ -54,22 +54,23 @@ export const NotFoundPage = () => {
 
   return (
     <main
+      id="not-found-page"
       data-testid="not-found-page"
       className="min-h-screen bg-[#F8F4E8] flex flex-col items-center justify-center px-4 py-12"
     >
       <div className="w-full max-w-md mx-auto text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
         {/* Hình minh họa Desktop & Mobile khớp Figma */}
-        <div className="relative inline-block">
+        <div id="not-found-icon" className="relative inline-block">
           <SadMonitorIcon />
         </div>
 
         {/* Thông điệp lỗi 404 */}
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">Lỗi 404</p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight">
+          <p id="not-found-badge" className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">Lỗi 404</p>
+          <h1 id="not-found-title" className="text-2xl sm:text-3xl font-bold text-black tracking-tight">
             Không tìm thấy trang
           </h1>
-          <p className="text-sm sm:text-base text-[#64748B] max-w-sm mx-auto leading-relaxed">
+          <p id="not-found-desc" className="text-sm sm:text-base text-[#64748B] max-w-sm mx-auto leading-relaxed">
             Đường dẫn bạn đang truy cập không tồn tại, đã bị xóa hoặc cơ sở lưu trú này không còn khả dụng trên hệ thống.
           </p>
         </div>
@@ -77,6 +78,7 @@ export const NotFoundPage = () => {
         {/* Nhóm nút hành động: Quay lại trang chủ / Quay lại trang trước */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <button
+            id="not-found-back-btn"
             type="button"
             onClick={() => navigate(-1)}
             className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-black text-sm font-medium hover:bg-[#F8F4E8] transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
@@ -86,6 +88,7 @@ export const NotFoundPage = () => {
           </button>
 
           <Link
+            id="not-found-home-btn"
             to={ROUTES.HOME}
             className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-neutral-800 transition-colors shadow-sm cursor-pointer inline-flex items-center justify-center gap-2"
           >
