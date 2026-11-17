@@ -115,6 +115,17 @@ const HOTEL_DETAIL_MAP = {
     updatedPriceDate: '2026-11-01T08:00:00Z',
     maxPrice: 600000,
   },
+  '9': {
+    images: [
+      'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?w=1200&auto=format&fit=crop&q=80',
+    ],
+    hostName: 'Nguyễn Văn Hải',
+    facebook: 'https://facebook.com/vinhhaigreen',
+    coordinates: { lat: 12.2700, lng: 109.1990 },
+    updatedPriceDate: '2026-11-05T08:00:00Z',
+    maxPrice: 950000,
+  },
 };
 
 export const HotelDetailPage = () => {

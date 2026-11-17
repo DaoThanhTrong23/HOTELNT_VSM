@@ -1,20 +1,24 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation } from 'lucide-react';
-import { MAP_PINS } from '../../data/mockHotels';
+import { MapPin, Navigation, Star, X, ArrowRight } from 'lucide-react';
+import { MAP_PINS, MOCK_HOTELS } from '../../data/mockHotels';
+import { formatCurrency } from '../../utils/formatters';
 
 /**
  * Component MapSection hiển thị bản đồ định vị các cơ sở lưu trú (theo Figma Tourist/Home)
- * Khi BE/Maps API sẵn sàng, có thể hoán đổi ruột bên trong mà không ảnh hưởng HomePage
+ * Hỗ trợ TC_SEA_12 (hiển thị marker) và TC_SEA_13 (click marker hiện Info Card mini có ảnh, tên, giá, nút Xem chi tiết)
  */
 export const MapSection = ({ pins = MAP_PINS, onPinClick }) => {
   const navigate = useNavigate();
+  const [selectedPin, setSelectedPin] = useState(null);
+
+  const selectedHotel = selectedPin
+    ? MOCK_HOTELS.find((h) => h.id === selectedPin.id)
+    : null;
 
   const handlePinClick = (pin) => {
-    if (onPinClick) {
-      onPinClick(pin);
-    } else {
-      navigate(`/hotel/${pin.id}`);
-    }
+    setSelectedPin(pin);
+    if (onPinClick) onPinClick(pin);
   };
 
   return (
@@ -53,30 +57,86 @@ export const MapSection = ({ pins = MAP_PINS, onPinClick }) => {
         </div>
       </div>
 
-      {/* Map pins */}
-      {pins.map((pin) => (
-        <button
-          key={pin.id}
-          id={`map-pin-${pin.id}`}
-          type="button"
-          onClick={() => handlePinClick(pin)}
-          className="absolute group cursor-pointer"
-          style={{ left: `${pin.x}%`, top: `${pin.y}%`, transform: 'translate(-50%, -100%)' }}
-          title={pin.label}
-        >
-          {/* Pin icon */}
-          <div className="relative flex flex-col items-center">
-            <div className="w-9 h-9 rounded-full bg-black border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-              <MapPin size={16} className="text-white" fill="white" />
+      {/* Map pins (TC_SEA_12) */}
+      {pins.map((pin) => {
+        const isSelected = selectedPin?.id === pin.id;
+        return (
+          <button
+            key={pin.id}
+            id={`map-pin-${pin.id}`}
+            type="button"
+            onClick={() => handlePinClick(pin)}
+            className="absolute group cursor-pointer z-10"
+            style={{ left: `${pin.x}%`, top: `${pin.y}%`, transform: 'translate(-50%, -100%)' }}
+            title={pin.label}
+          >
+            {/* Pin icon */}
+            <div className="relative flex flex-col items-center">
+              <div
+                className={`w-9 h-9 rounded-full border-2 border-white shadow-lg flex items-center justify-center transition-all ${
+                  isSelected ? 'bg-[#D97706] scale-125 ring-2 ring-black' : 'bg-black group-hover:scale-110'
+                }`}
+              >
+                <MapPin size={16} className="text-white" fill="white" />
+              </div>
+              <div className={`w-2 h-2 rotate-45 -mt-1 shadow ${isSelected ? 'bg-[#D97706]' : 'bg-black'}`} />
             </div>
-            <div className="w-2 h-2 bg-black rotate-45 -mt-1 shadow" />
+            {/* Tooltip tên */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-black text-[11px] font-semibold rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-[#CBD5E1]">
+              {pin.label}
+            </div>
+          </button>
+        );
+      })}
+
+      {/* INFO CARD POPUP KHI CLICK VÀO PIN (TC_SEA_13 – FR-06) */}
+      {selectedHotel && (
+        <div
+          id="map-info-card"
+          className="absolute z-30 bottom-16 left-1/2 -translate-x-1/2 sm:left-6 sm:translate-x-0 w-80 bg-white rounded-2xl p-3 shadow-2xl border border-[#CBD5E1] flex gap-3 animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="w-24 h-24 rounded-xl overflow-hidden bg-[#CBD5E1] flex-shrink-0">
+            <img
+              src={selectedHotel.thumbnail}
+              alt={selectedHotel.name}
+              className="w-full h-full object-cover"
+            />
           </div>
-          {/* Tooltip tên */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-black text-[11px] font-semibold rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-[#CBD5E1]">
-            {pin.label}
+          <div className="flex-1 min-w-0 flex flex-col justify-between">
+            <div className="flex items-start justify-between gap-1">
+              <h4 className="font-bold text-xs text-black line-clamp-1 leading-tight">
+                {selectedHotel.name}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setSelectedPin(null)}
+                aria-label="Đóng popup"
+                className="text-[#64748B] hover:text-black p-0.5 cursor-pointer -mr-1 -mt-1"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-[#64748B] mt-0.5">
+              <Star size={11} className="fill-[#D97706] text-[#D97706]" />
+              <span className="font-bold text-black">{selectedHotel.rating}</span>
+              <span>• {selectedHotel.type}</span>
+            </div>
+            <div className="text-xs font-extrabold text-black mt-1">
+              {formatCurrency(selectedHotel.minPrice)}{' '}
+              <span className="text-[10px] font-normal text-[#64748B]">/ đêm</span>
+            </div>
+            <button
+              id="map-info-view-detail-btn"
+              type="button"
+              onClick={() => navigate(`/hotel/${selectedHotel.id}`)}
+              className="mt-1.5 w-full py-1.5 px-2 bg-black text-white rounded-lg text-xs font-semibold hover:bg-[#1E293B] transition-colors flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>Xem chi tiết</span>
+              <ArrowRight size={12} />
+            </button>
           </div>
-        </button>
-      ))}
+        </div>
+      )}
 
       {/* Nút vị trí của tôi */}
       <button

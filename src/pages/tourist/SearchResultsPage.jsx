@@ -31,6 +31,7 @@ export const SearchResultsPage = () => {
     return raw ? raw.split(',').filter(Boolean) : [];
   }, [searchParams]);
   const distanceParam = searchParams.get('distance') || '';
+  const phuongParam = searchParams.get('phuong') || searchParams.get('ward') || '';
   const sortBy = searchParams.get('sortBy') || 'price_asc';
 
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,7 @@ export const SearchResultsPage = () => {
         maxPrice: maxPriceParam,
         amenities: amenitiesParam,
         distance: distanceParam,
+        phuong: phuongParam,
         sortBy,
       });
       setHotels(filtered);
@@ -59,7 +61,7 @@ export const SearchResultsPage = () => {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [keyword, loaiHinhParam, minPriceParam, maxPriceParam, amenitiesParam, distanceParam, sortBy]);
+  }, [keyword, loaiHinhParam, minPriceParam, maxPriceParam, amenitiesParam, distanceParam, phuongParam, sortBy]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleOpenFilter = useCallback(() => {
@@ -92,6 +94,9 @@ export const SearchResultsPage = () => {
     (minPriceParam > PRICE_LIMITS.MIN_VND ? 1 : 0) +
     (maxPriceParam < PRICE_LIMITS.MAX_VND ? 1 : 0) +
     (distanceParam ? 1 : 0);
+
+  // Kiểm tra từ khóa có phải nhập dạng giá tiền không (TC_HOM_04 - FR-02)
+  const isPriceKeyword = /^\s*[\d\.\,]+(\s*(k|đ|vnd|triệu|tr))?\s*$/i.test(keyword.trim());
 
   // Phân trang
   const pagedHotels = hotels.slice((page - 1) * SEARCH_PAGE_SIZE, page * SEARCH_PAGE_SIZE);
@@ -172,12 +177,14 @@ export const SearchResultsPage = () => {
         <EmptyState
           title="Không tìm thấy cơ sở phù hợp"
           message={
-            keyword
+            isPriceKeyword
+              ? 'Theo quy tắc SRS FR-02: Thanh tìm kiếm chỉ tìm theo Tên cơ sở lưu trú. Để lọc theo khoảng giá, vui lòng sử dụng chức năng Bộ lọc.'
+              : keyword
               ? `Không có kết quả cho "${keyword}". Thử tên khác hoặc điều chỉnh bộ lọc để xem thêm.`
               : 'Không có cơ sở nào phù hợp với bộ lọc hiện tại. Hãy điều chỉnh lại bộ lọc.'
           }
-          actionText="Xóa tất cả bộ lọc"
-          onAction={handleResetAll}
+          actionText={isPriceKeyword ? 'Mở bộ lọc giá' : 'Xóa bớt bộ lọc'}
+          onAction={isPriceKeyword ? handleOpenFilter : handleResetAll}
         />
       ) : (
         <>

@@ -129,6 +129,21 @@ export const MOCK_HOTELS = [
     distanceKm: 2.8,
     description: 'Nhà nghỉ sạch sẽ, giá bình dân, thích hợp cho khách đi một mình hoặc theo cặp.',
   },
+  {
+    id: '9',
+    name: 'Vĩnh Hải Green Homestay',
+    type: 'Homestay',
+    address: '15 Nguyễn Biểu, Vĩnh Hải, Nha Trang',
+    thumbnail: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&auto=format&fit=crop&q=80',
+    minPrice: 600000,
+    maxPrice: 950000,
+    rating: 4.8,
+    phone: '0978123456',
+    zalo: '0978123456',
+    amenities: ['Hồ bơi', 'Wifi miễn phí', 'Điều hòa', 'Gần nhà hàng'],
+    distanceKm: 3.2,
+    description: 'Homestay xinh xắn tại phường Vĩnh Hải với bể bơi mini trong khuôn viên sân vườn xanh mát.',
+  },
 ];
 
 /** Tập con dùng cho trang chủ (6 nổi bật) */

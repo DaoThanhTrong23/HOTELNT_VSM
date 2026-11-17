@@ -21,6 +21,7 @@ export function applyFiltersAndSort({
   maxPrice = Infinity,
   amenities = [],
   distance = '',
+  phuong = '',
   sortBy = 'price_asc',
 }) {
   let result = [...hotels];
@@ -40,19 +41,32 @@ export function applyFiltersAndSort({
   result = result.filter((h) => h.minPrice >= minPrice && h.minPrice <= maxPrice);
 
   // 4. Lọc theo tiện ích – quy tắc AND (TC_SEA_04, TC_SEA_06 – FR-03)
+  // Đồng thời hỗ trợ alias tiếng Việt ('Bể bơi' tương đương 'Hồ bơi')
   if (amenities.length > 0) {
-    result = result.filter((h) =>
-      amenities.every((a) => Array.isArray(h.amenities) && h.amenities.includes(a))
-    );
+    result = result.filter((h) => {
+      if (!Array.isArray(h.amenities)) return false;
+      return amenities.every((req) => {
+        if (req === 'Bể bơi' || req === 'Hồ bơi') {
+          return h.amenities.includes('Hồ bơi') || h.amenities.includes('Bể bơi');
+        }
+        return h.amenities.includes(req);
+      });
+    });
   }
 
-  // 5. Lọc theo khoảng cách (TC_SEA_03 – FR-03, FR-09)
+  // 5. Lọc theo Phường/Xã (TC_SEA_05, TC_SEA_06 – FR-03)
+  if (phuong && phuong.trim()) {
+    const p = phuong.trim().toLowerCase();
+    result = result.filter((h) => h.address?.toLowerCase().includes(p));
+  }
+
+  // 6. Lọc theo khoảng cách (TC_SEA_03 – FR-03, FR-09)
   if (distance && !isNaN(Number(distance))) {
     const maxKm = Number(distance);
     result = result.filter((h) => (h.distanceKm ?? 999) <= maxKm);
   }
 
-  // 6. Sắp xếp kết quả (TC_SEA_07, TC_SEA_08, TC_SEA_09 – FR-04)
+  // 7. Sắp xếp kết quả (TC_SEA_07, TC_SEA_08, TC_SEA_09 – FR-04)
   result.sort((a, b) => {
     if (sortBy === 'price_asc')  return (a.minPrice ?? 0) - (b.minPrice ?? 0);
     if (sortBy === 'price_desc') return (b.minPrice ?? 0) - (a.minPrice ?? 0);

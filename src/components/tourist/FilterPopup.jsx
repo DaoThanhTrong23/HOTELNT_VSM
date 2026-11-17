@@ -85,11 +85,10 @@ export const FilterPopup = ({
                   id={`loai-hinh-${opt.replace(/\s/g, '-')}`}
                   type="button"
                   onClick={() => setLoaiHinh(opt)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                    loaiHinh === opt
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${loaiHinh === opt
                       ? 'bg-black text-white border-black'
                       : 'bg-white text-[#64748B] border-[#CBD5E1] hover:border-black hover:text-black'
-                  }`}
+                    }`}
                 >
                   {opt}
                 </button>
@@ -168,11 +167,10 @@ export const FilterPopup = ({
                     setMinPrice(p.min);
                     setMaxPrice(p.max);
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-colors ${
-                    minPrice === p.min && maxPrice === p.max
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-colors ${minPrice === p.min && maxPrice === p.max
                       ? 'bg-black text-white border-black'
                       : 'bg-[#F8F4E8] text-[#64748B] border-[#CBD5E1] hover:border-black hover:text-black'
-                  }`}
+                    }`}
                 >
                   {p.label}
                 </button>
