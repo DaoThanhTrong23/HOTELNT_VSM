@@ -102,9 +102,26 @@ export const HotelDetailDrawer = ({
       ? hotel.tienIch.map((t) => (typeof t === 'string' ? t : t.tenTienIch))
       : ['Hồ bơi', 'Wifi miễn phí', 'Bãi biển riêng', 'Nhà hàng', 'Đưa đón sân bay', 'Spa & Trị liệu'];
 
-  const formatVND = (val) => {
-    if (!val && val !== 0) return '0đ';
-    return Number(val).toLocaleString('vi-VN') + 'đ';
+  const formatPriceValue = (val) => {
+    if (val === null || val === undefined || val === '') return null;
+    const num = typeof val === 'number' ? val : Number(String(val).replace(/\D/g, ''));
+    return Number.isFinite(num) && num > 0 ? num : null;
+  };
+
+  const renderPrice = () => {
+    const min = formatPriceValue(hotel.gia ?? hotel.giaThapNhat ?? hotel.giaMin ?? hotel.minPrice);
+    const max = formatPriceValue(hotel.giaMax ?? hotel.giaCaoNhat ?? hotel.maxPrice);
+
+    if (min && max && max > min) {
+      return `${min.toLocaleString('vi-VN')}đ - ${max.toLocaleString('vi-VN')}đ`;
+    }
+    if (min) {
+      return `${min.toLocaleString('vi-VN')}đ/đêm`;
+    }
+    if (max) {
+      return `Đến ${max.toLocaleString('vi-VN')}đ/đêm`;
+    }
+    return 'Chưa cập nhật giá';
   };
 
   return (
@@ -212,7 +229,7 @@ export const HotelDetailDrawer = ({
             <div className="flex">
               <span className="text-[#64748B] w-28 shrink-0">• Giá tham khảo:</span>
               <span className="font-bold text-[#2563EB]">
-                {formatVND(hotel.giaThapNhat)} - {formatVND(hotel.giaCaoNhat)}
+                {renderPrice()}
               </span>
             </div>
             <div className="flex flex-col sm:flex-row gap-0.5 sm:gap-0">
