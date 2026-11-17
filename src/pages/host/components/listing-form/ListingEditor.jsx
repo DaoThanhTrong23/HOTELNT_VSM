@@ -744,6 +744,7 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
 
       {status === HOTEL_STATUS.PENDING && (
         <FormBanner
+          id="listing-pending-banner"
           variant="warning"
           title="Cơ sở đang chờ duyệt"
           message="Bạn chưa thể chỉnh sửa cho đến khi Quản trị viên duyệt hoặc từ chối. Kết quả sẽ được gửi qua email."
@@ -751,12 +752,14 @@ export const ListingEditor = ({ mode, maCSLT = null, initialStep = 1, onCreated,
       )}
       {status === HOTEL_STATUS.REJECTED && (
         <FormBanner
+          id="listing-rejected-banner"
           title="Quản trị viên đã từ chối cơ sở này"
           message={`Lý do: ${detail?.lyDoTuChoi || 'Không có ghi chú.'}`}
         />
       )}
       {status === HOTEL_STATUS.HIDDEN && (
         <FormBanner
+          id="listing-hidden-banner"
           title="Quản trị viên đã ẩn cơ sở này"
           message={`Lý do: ${detail?.lyDoViPham || 'Không có ghi chú.'}`}
         />

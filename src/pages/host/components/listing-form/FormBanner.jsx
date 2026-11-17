@@ -6,11 +6,11 @@ const VARIANTS = {
 };
 
 // Pass role="alert" for errors caused by the user's last action; status banners stay silent.
-export const FormBanner = ({ variant = 'danger', title, message, actionLabel, onAction, role }) => {
+export const FormBanner = ({ id, variant = 'danger', title, message, actionLabel, onAction, role }) => {
   const styles = VARIANTS[variant] ?? VARIANTS.danger;
   const Icon = styles.icon;
   return (
-    <div role={role} className={`flex items-start gap-3 p-4 rounded-xl border ${styles.box}`}>
+    <div id={id} role={role} className={`flex items-start gap-3 p-4 rounded-xl border ${styles.box}`}>
       <Icon size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1 min-w-0 text-sm">
         {title && <p className="font-semibold">{title}</p>}
