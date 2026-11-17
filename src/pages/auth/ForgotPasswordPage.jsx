@@ -36,6 +36,7 @@ export const ForgotPasswordPage = () => {
   const [resetToken, setResetToken] = useState(initialToken);
   const [emailOrPhone, setEmailOrPhone] = useState(emailFromUrl);
   const [submittedRequest, setSubmittedRequest] = useState(false);
+  const [challengeId, setChallengeId] = useState('');
 
   // STATE: BƯỚC 2 - ĐẶT LẠI MẬT KHẨU MỚI
   const [newPassword, setNewPassword] = useState('');
@@ -88,7 +89,17 @@ export const ForgotPasswordPage = () => {
 
     try {
       if (authService?.forgotPassword) {
-        await authService.forgotPassword(cleanValue);
+        const res = await authService.forgotPassword(cleanValue);
+        const serverCid = res?.data?.challengeId || res?.challengeId;
+        if (serverCid) {
+          setChallengeId(serverCid);
+          try {
+            sessionStorage.setItem('hotelnt_otp_challenge', serverCid);
+            sessionStorage.setItem(`hotelnt_otp_challenge_${cleanValue}`, serverCid);
+          } catch {
+            /* ignore */
+          }
+        }
       }
     } catch (apiErr) {
       const statusCode = apiErr?.response?.status;
@@ -110,7 +121,11 @@ export const ForgotPasswordPage = () => {
 
   // CHUYỂN TIẾP SANG TRANG VERIFY OTP
   const handleGoToOtp = () => {
-    const cid = 'chg-fp-' + Date.now();
+    const cid =
+      challengeId ||
+      sessionStorage.getItem('hotelnt_otp_challenge') ||
+      sessionStorage.getItem(`hotelnt_otp_challenge_${emailOrPhone.trim()}`) ||
+      'chg-fp-' + Date.now();
     navigate(
       `${ROUTES.VERIFY_OTP}?email=${encodeURIComponent(emailOrPhone.trim())}&flow=FORGOT_PASSWORD&challengeId=${encodeURIComponent(cid)}`,
       {
