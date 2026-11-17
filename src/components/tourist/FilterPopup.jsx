@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import { PRICE_LIMITS } from '../../constants/enums';
-import { LOAI_HINH_OPTIONS, AMENITY_OPTIONS, PRICE_PRESETS } from '../../constants/filters';
+import { LOAI_HINH_OPTIONS, AMENITY_OPTIONS, PRICE_PRESETS, DISTANCE_OPTIONS, NEARBY_OPTIONS } from '../../constants/filters';
 import { formatCurrency } from '../../utils/formatters';
 
 /**
@@ -18,6 +18,10 @@ export const FilterPopup = ({
   setMaxPrice,
   amenities,
   toggleAmenity,
+  distance,
+  setDistance,
+  nearby,
+  toggleNearby,
   onReset,
   onApply,
 }) => {
@@ -172,6 +176,55 @@ export const FilterPopup = ({
                 >
                   {p.label}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Khoảng cách (FR-03, FR-09) ── */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
+              Khoảng cách
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {DISTANCE_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2.5 text-sm text-black cursor-pointer group"
+                >
+                  <input
+                    type="radio"
+                    name="distance"
+                    value={opt.value}
+                    checked={distance === opt.value}
+                    onChange={() => setDistance(opt.value)}
+                    className="w-4 h-4 accent-black cursor-pointer"
+                  />
+                  <span className="text-sm group-hover:text-[#D97706] transition-colors">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Địa điểm lân cận ── */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
+              Địa điểm lân cận
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {NEARBY_OPTIONS.map((item) => (
+                <label
+                  key={item}
+                  className="flex items-center gap-2.5 text-sm text-black cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    id={`filter-nearby-${item.replace(/\s+/g, '-')}`}
+                    checked={nearby.includes(item)}
+                    onChange={() => toggleNearby(item)}
+                    className="w-4 h-4 rounded border-[#CBD5E1] accent-black cursor-pointer"
+                  />
+                  <span className="text-sm group-hover:text-[#D97706] transition-colors">{item}</span>
+                </label>
               ))}
             </div>
           </div>

@@ -46,6 +46,25 @@ export const PRICE_PRESETS = [
 ];
 
 /**
+ * Các tùy chọn khoảng cách (FR-03, FR-09)
+ */
+export const DISTANCE_OPTIONS = [
+  { value: '', label: 'Bất kỳ' },
+  { value: '1', label: 'Dưới 1km' },
+  { value: '3', label: 'Dưới 3km' },
+  { value: '5', label: 'Dưới 5km' },
+];
+
+/**
+ * Các địa điểm lân cận nổi bật tại Nha Trang
+ */
+export const NEARBY_OPTIONS = [
+  'Gần biển',
+  'Gần nhà hàng',
+  'Gần khu vui chơi',
+];
+
+/**
  * Số item hiển thị trên mỗi trang kết quả
  */
 export const SEARCH_PAGE_SIZE = 5;
