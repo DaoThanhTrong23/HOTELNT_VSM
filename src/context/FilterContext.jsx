@@ -22,6 +22,8 @@ export const FilterProvider = ({ children }) => {
   const [draftMinPrice, setDraftMinPrice] = useState(PRICE_LIMITS.MIN_VND);
   const [draftMaxPrice, setDraftMaxPrice] = useState(PRICE_LIMITS.MAX_VND);
   const [draftAmenities, setDraftAmenities] = useState([]);
+  const [draftDistance, setDraftDistance] = useState('');       // '' = Bất kỳ; '1','3','5' = km
+  const [draftNearby, setDraftNearby] = useState([]);           // Địa điểm lân cận
 
   // Đồng bộ draft filters từ URL khi mở popup
   const openFilter = useCallback(() => {
@@ -37,6 +39,10 @@ export const FilterProvider = ({ children }) => {
     const amenitiesParam = searchParams.get('amenities')
       ? searchParams.get('amenities').split(',').filter(Boolean)
       : [];
+    const distanceParam = searchParams.get('distance') || '';
+    const nearbyParam = searchParams.get('nearby')
+      ? searchParams.get('nearby').split(',').filter(Boolean)
+      : [];
 
     setDraftLoaiHinh(loaiHinhParam);
     setDraftMaPhuong(maPhuongParam);
@@ -44,6 +50,8 @@ export const FilterProvider = ({ children }) => {
     setDraftMinPrice(minPriceParam);
     setDraftMaxPrice(maxPriceParam);
     setDraftAmenities(amenitiesParam);
+    setDraftDistance(distanceParam);
+    setDraftNearby(nearbyParam);
     setIsFilterOpen(true);
   }, [searchParams]);
 
@@ -64,6 +72,8 @@ export const FilterProvider = ({ children }) => {
     setDraftMinPrice(PRICE_LIMITS.MIN_VND);
     setDraftMaxPrice(PRICE_LIMITS.MAX_VND);
     setDraftAmenities([]);
+    setDraftDistance('');
+    setDraftNearby([]);
   }, []);
 
   const handleApplyFilter = useCallback(() => {
@@ -91,6 +101,12 @@ export const FilterProvider = ({ children }) => {
     if (draftAmenities.length > 0) {
       params.set('amenities', draftAmenities.join(','));
     }
+    if (draftDistance) {
+      params.set('distance', draftDistance);
+    }
+    if (draftNearby.length > 0) {
+      params.set('nearby', draftNearby.join(','));
+    }
 
     const currentSort = searchParams.get('sortBy');
     if (currentSort) {
@@ -110,8 +126,16 @@ export const FilterProvider = ({ children }) => {
     draftMinPrice,
     draftMaxPrice,
     draftAmenities,
+    draftDistance,
+    draftNearby,
     navigate,
   ]);
+
+  const toggleDraftNearby = useCallback((item) => {
+    setDraftNearby((prev) =>
+      prev.includes(item) ? prev.filter((n) => n !== item) : [...prev, item]
+    );
+  }, []);
 
   const contextValue = useMemo(
     () => ({
@@ -140,6 +164,10 @@ export const FilterProvider = ({ children }) => {
         setMaxPrice={setDraftMaxPrice}
         amenities={draftAmenities}
         toggleAmenity={toggleDraftAmenity}
+        distance={draftDistance}
+        setDistance={setDraftDistance}
+        nearby={draftNearby}
+        toggleNearby={toggleDraftNearby}
         onReset={handleResetDraft}
         onApply={handleApplyFilter}
       />

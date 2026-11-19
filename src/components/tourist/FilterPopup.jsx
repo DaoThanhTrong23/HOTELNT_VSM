@@ -8,6 +8,8 @@ import {
   NHA_TRANG_WARDS,
   RADIUS_LIMITS,
   RADIUS_PRESETS,
+  DISTANCE_OPTIONS,
+  NEARBY_OPTIONS,
 } from '../../constants/filters';
 import { listingService } from '../../services/listingService';
 import { formatCurrency } from '../../utils/formatters';
@@ -35,6 +37,10 @@ export const FilterPopup = ({
   setMaxPrice,
   amenities,
   toggleAmenity,
+  distance,
+  setDistance,
+  nearby,
+  toggleNearby,
   onReset,
   onApply,
 }) => {
@@ -133,11 +139,10 @@ export const FilterPopup = ({
                   id={`loai-hinh-${opt.replace(/\s/g, '-')}`}
                   type="button"
                   onClick={() => setLoaiHinh(opt)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                    loaiHinh === opt
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${loaiHinh === opt
                       ? 'bg-black text-white border-black'
                       : 'bg-white text-[#64748B] border-[#CBD5E1] hover:border-black hover:text-black'
-                  }`}
+                    }`}
                 >
                   {opt}
                 </button>
@@ -304,11 +309,10 @@ export const FilterPopup = ({
                     setMinPrice(p.min);
                     setMaxPrice(p.max);
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-colors ${
-                    minPrice === p.min && maxPrice === p.max
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-colors ${minPrice === p.min && maxPrice === p.max
                       ? 'bg-black text-white border-black'
                       : 'bg-[#F8F4E8] text-[#64748B] border-[#CBD5E1] hover:border-black hover:text-black'
-                  }`}
+                    }`}
                 >
                   {p.label}
                 </button>
@@ -316,7 +320,56 @@ export const FilterPopup = ({
             </div>
           </div>
 
-          {/* ── 5. Tiện ích (FR-04 – quy tắc AND) ── */}
+          {/* ── Khoảng cách (FR-03, FR-09) ── */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
+              Khoảng cách
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {DISTANCE_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2.5 text-sm text-black cursor-pointer group"
+                >
+                  <input
+                    type="radio"
+                    name="distance"
+                    value={opt.value}
+                    checked={distance === opt.value}
+                    onChange={() => setDistance && setDistance(opt.value)}
+                    className="w-4 h-4 accent-black cursor-pointer"
+                  />
+                  <span className="text-sm group-hover:text-[#D97706] transition-colors">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Địa điểm lân cận ── */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
+              Địa điểm lân cận
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {NEARBY_OPTIONS.map((item) => (
+                <label
+                  key={item}
+                  className="flex items-center gap-2.5 text-sm text-black cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    id={`filter-nearby-${item.replace(/\s+/g, '-')}`}
+                    checked={Array.isArray(nearby) && nearby.includes(item)}
+                    onChange={() => toggleNearby && toggleNearby(item)}
+                    className="w-4 h-4 rounded border-[#CBD5E1] accent-black cursor-pointer"
+                  />
+                  <span className="text-sm group-hover:text-[#D97706] transition-colors">{item}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Tiện ích (FR-04 – quy tắc AND) ── */}
           <div className="space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider text-[#64748B] block">
               Tiện ích

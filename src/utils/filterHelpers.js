@@ -1,7 +1,7 @@
 import { NHA_TRANG_WARDS } from '../constants/filters';
 
 /**
- * Hàm lọc và sắp xếp danh sách cơ sở lưu trú (FR-03, FR-04, API_DESIGN Row 3)
+ * Hàm lọc và sắp xếp danh sách cơ sở lưu trú (FR-02, FR-03, FR-04, FR-09, API_DESIGN Row 3)
  * Pure function: không làm thay đổi mảng gốc, dễ dàng unit test
  *
  * @param {Object} params
@@ -9,7 +9,9 @@ import { NHA_TRANG_WARDS } from '../constants/filters';
  * @param {string} params.keyword Từ khóa tìm kiếm (tên khách sạn)
  * @param {string} params.loaiHinh Loại hình đã chọn ('Tất cả' hoặc loại cụ thể)
  * @param {string|number} params.maPhuong Mã phường/xã đã chọn
+ * @param {string} params.phuong Tên phường/xã tìm kiếm
  * @param {number} params.radiusKm Bán kính tìm kiếm (km)
+ * @param {string|number} params.distance Khoảng cách tối đa (km)
  * @param {number} params.minPrice Giá tối thiểu
  * @param {number} params.maxPrice Giá tối đa
  * @param {Array<string>} params.amenities Mảng các tiện ích yêu cầu
@@ -21,7 +23,9 @@ export function applyFiltersAndSort({
   keyword = '',
   loaiHinh = 'Tất cả',
   maPhuong = '',
+  phuong = '',
   radiusKm = 0,
+  distance = '',
   minPrice = 0,
   maxPrice = Infinity,
   amenities = [],
@@ -29,9 +33,9 @@ export function applyFiltersAndSort({
 }) {
   let result = [...hotels];
 
-  // 1. Lọc theo từ khóa (FR-02)
+  // 1. Lọc theo từ khóa – trim + lowercase (TC_HOM_02, TC_HOM_03 – FR-02)
   if (keyword.trim()) {
-    const kw = keyword.toLowerCase();
+    const kw = keyword.trim().toLowerCase();
     result = result.filter(
       (h) =>
         (h.name && h.name.toLowerCase().includes(kw)) ||
@@ -54,14 +58,23 @@ export function applyFiltersAndSort({
       if (wardName && addr.includes(wardName)) return true;
       return false;
     });
+  } else if (phuong && phuong.trim()) {
+    const p = phuong.trim().toLowerCase();
+    result = result.filter((h) => (h.address || h.diaChiChiTiet || '').toLowerCase().includes(p));
   }
 
-  // 4. Lọc theo bán kính khoảng cách (radiusKm)
-  if (radiusKm && Number(radiusKm) > 0) {
-    const maxDist = Number(radiusKm);
+  // 4. Lọc theo bán kính khoảng cách (radiusKm / distance)
+  const effectiveDistance =
+    radiusKm && Number(radiusKm) > 0
+      ? Number(radiusKm)
+      : distance && !isNaN(Number(distance))
+        ? Number(distance)
+        : null;
+
+  if (effectiveDistance !== null) {
     result = result.filter((h) => {
       const dist = h.distanceKm ?? h.khoangCach ?? 2.5;
-      return dist <= maxDist;
+      return dist <= effectiveDistance;
     });
   }
 
@@ -72,6 +85,7 @@ export function applyFiltersAndSort({
   });
 
   // 6. Lọc theo tiện ích - quy tắc AND (FR-04): phải chứa đủ toàn bộ tiện ích đã chọn
+  // Hỗ trợ alias tiếng Việt ('Bể bơi' tương đương 'Hồ bơi')
   if (amenities.length > 0) {
     result = result.filter((h) => {
       const hotelAmenities = Array.isArray(h.amenities)
@@ -79,7 +93,12 @@ export function applyFiltersAndSort({
         : Array.isArray(h.tienIch)
           ? h.tienIch.map((t) => (typeof t === 'string' ? t : t.tenTienIch))
           : [];
-      return amenities.every((a) => hotelAmenities.some((item) => item.includes(a) || a.includes(item)));
+      return amenities.every((req) => {
+        if (req === 'Bể bơi' || req === 'Hồ bơi') {
+          return hotelAmenities.some((item) => item.includes('Hồ bơi') || item.includes('Bể bơi'));
+        }
+        return hotelAmenities.some((item) => item.includes(req) || req.includes(item));
+      });
     });
   }
 

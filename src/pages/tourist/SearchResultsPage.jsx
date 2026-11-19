@@ -35,6 +35,8 @@ export const SearchResultsPage = () => {
     const raw = searchParams.get('amenities');
     return raw ? raw.split(',').filter(Boolean) : [];
   }, [searchParams]);
+  const distanceParam = searchParams.get('distance') || '';
+  const phuongParam = searchParams.get('phuong') || searchParams.get('ward') || '';
   const sortBy = searchParams.get('sortBy') || 'price_asc';
   const pageParam = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
@@ -84,7 +86,9 @@ export const SearchResultsPage = () => {
               keyword,
               loaiHinh: loaiHinhParam,
               maPhuong: maPhuongParam,
+              phuong: phuongParam,
               radiusKm: radiusKmParam,
+              distance: distanceParam,
               minPrice: minPriceParam,
               maxPrice: maxPriceParam,
               amenities: amenitiesParam,
@@ -102,7 +106,9 @@ export const SearchResultsPage = () => {
               keyword,
               loaiHinh: loaiHinhParam,
               maPhuong: maPhuongParam,
+              phuong: phuongParam,
               radiusKm: radiusKmParam,
+              distance: distanceParam,
               minPrice: minPriceParam,
               maxPrice: maxPriceParam,
               amenities: amenitiesParam,
@@ -129,7 +135,9 @@ export const SearchResultsPage = () => {
     keyword,
     loaiHinhParam,
     maPhuongParam,
+    phuongParam,
     radiusKmParam,
+    distanceParam,
     minPriceParam,
     maxPriceParam,
     amenitiesParam,
@@ -171,6 +179,17 @@ export const SearchResultsPage = () => {
     },
     [searchParams, setSearchParams]
   );
+
+  // Đếm số lượng bộ lọc đang kích hoạt
+  const activeFilterCount =
+    (loaiHinhParam !== 'Tất cả' ? 1 : 0) +
+    amenitiesParam.length +
+    (minPriceParam > PRICE_LIMITS.MIN_VND ? 1 : 0) +
+    (maxPriceParam < PRICE_LIMITS.MAX_VND ? 1 : 0) +
+    (distanceParam ? 1 : 0);
+
+  // Kiểm tra từ khóa có phải nhập dạng giá tiền không (TC_HOM_04 - FR-02)
+  const isPriceKeyword = /^\s*[\d\.\,]+(\s*(k|đ|vnd|triệu|tr))?\s*$/i.test(keyword.trim());
 
   // Phân trang an toàn với safePage nằm trong [1, totalPages]
   const totalPages = Math.max(1, Math.ceil(hotels.length / SEARCH_PAGE_SIZE));
